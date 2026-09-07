@@ -6,14 +6,24 @@
 // luxthos + luxthoshobbies), or everywhere if "All Twitch channels" is picked.
 
 (() => {
-  if (window.__luxbuxOverlay) return;
+  // Firefox injects content scripts into child frames (incl. about:blank ones
+  // Twitch spawns); only ever run in the real top page.
+  if (window.top !== window.self) return;
+  // Idempotent: never end up with two boxes even if the script runs twice.
+  if (window.__luxbuxOverlay || document.getElementById("luxbux-overlay")) return;
   window.__luxbuxOverlay = true;
+
+  // Firefox = promise-based `browser`; Chrome/Edge = `chrome` (promises in MV3).
+  const ext = globalThis.browser || globalThis.chrome;
 
   const REFRESH_MS = 15000; // same cadence luxthos.io's own page uses
   const DEFAULTS = { showAll: false, channels: ["luxthos", "luxthoshobbies"] };
 
-  const ask = (force) =>
-    chrome.runtime.sendMessage({ t: "refresh", force: !!force }).catch(() => {});
+  const msg = (m) => Promise.resolve(ext.runtime.sendMessage(m)).catch(() => {});
+  const ask = (force) => msg({ t: "refresh", force: !!force });
+  // Tells the background "a Twitch tab is here" so it colours the toolbar icon
+  // and keeps the balance fresh even on non-Luxthos channels.
+  const ping = () => msg({ t: "onTwitch" });
 
   // Best-effort: match the site's display font. If Twitch's CSP blocks this,
   // it silently falls back to the system stack in overlay.css.
@@ -29,6 +39,8 @@
   box.id = "luxbux-overlay";
   box.title = "LuxBux";
   box.hidden = true; // stays hidden until we know we're on an allowed channel
+  // Inline fallback in case overlay.css is blocked — keeps a hidden box hidden.
+  box.style.display = "none";
   box.innerHTML =
     '<div class="luxbux-label">LuxBux</div>' +
     '<div class="luxbux-value-wrap">' +
@@ -97,32 +109,36 @@
   }
 
   function allowedHere() {
-    if (settings.showAll) return true;
+    if (settings && settings.showAll === true) return true;
+    const list = (settings && settings.channels) || [];
     const ch = currentChannel();
-    return !!ch && settings.channels.some((c) => c.toLowerCase() === ch);
+    return !!ch && list.some((c) => String(c).toLowerCase() === ch);
   }
 
   function applyGate() {
     const show = allowedHere();
-    if (show === onAllowed) return;
-    onAllowed = show;
     box.hidden = !show;
-    if (show && !document.hidden) ask(); // warm the value the moment we arrive
+    box.style.display = show ? "" : "none";
+    if (show && !onAllowed && !document.hidden) ask(); // warm the value on arrival
+    onAllowed = show;
   }
 
   // ---- load + react to storage ------------------------------------------
-  chrome.storage.local.get(["settings", "state", "pos"]).then((r) => {
-    if (r.settings) settings = { ...DEFAULTS, ...r.settings };
-    if (r.pos) {
-      box.style.left = r.pos.left;
-      box.style.top = r.pos.top;
-      box.style.right = "auto";
-    }
-    render(r.state);
-    applyGate();
-  });
+  Promise.resolve(ext.storage.local.get(["settings", "state", "pos"]))
+    .then((r) => {
+      r = r || {};
+      if (r.settings) settings = { ...DEFAULTS, ...r.settings };
+      if (r.pos) {
+        box.style.left = r.pos.left;
+        box.style.top = r.pos.top;
+        box.style.right = "auto";
+      }
+      render(r.state);
+      applyGate();
+    })
+    .catch(() => applyGate());
 
-  chrome.storage.onChanged.addListener((changes, area) => {
+  ext.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
     if (changes.state) render(changes.state.newValue);
     if (changes.settings) {
@@ -130,6 +146,8 @@
       applyGate();
     }
   });
+
+  ping(); // register this tab with the background right away
 
   // Twitch is a single-page app — watch for channel changes without a reload.
   let lastUrl = location.href;
@@ -161,7 +179,7 @@
   box.addEventListener("pointerup", () => {
     if (!drag) return;
     if (drag.moved) {
-      chrome.storage.local.set({ pos: { left: box.style.left, top: box.style.top } });
+      ext.storage.local.set({ pos: { left: box.style.left, top: box.style.top } });
     } else {
       ask(true); // manual click: refresh now, skip the debounce
     }
@@ -169,13 +187,17 @@
   });
 
   // ---- keep it live ---------------------------------------------------
-  // Poll every 15s, but only while the box is actually shown and the tab is
-  // visible. The background alarm is the slow fallback for a hidden tab.
+  // Every 15s while visible: check in (icon + warm value). On an allowed
+  // channel that also refreshes the number the box is showing.
   setInterval(() => {
-    if (onAllowed && !document.hidden) ask();
+    if (document.hidden) return;
+    ping();
+    if (onAllowed) ask();
   }, REFRESH_MS);
 
   document.addEventListener("visibilitychange", () => {
-    if (onAllowed && !document.hidden) ask();
+    if (document.hidden) return;
+    ping();
+    if (onAllowed) ask();
   });
 })();

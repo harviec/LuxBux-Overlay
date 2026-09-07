@@ -26,9 +26,24 @@ Works on **Chrome**, **Edge**, and **Firefox** from one shared codebase.
   browser — visit the site, log in, then click the box), **"enable"** (Firefox
   only — open the toolbar popup and grant luxthos.io access).
 
+## Toolbar icon colour
+
+The extension icon is a status light:
+
+| Colour | Meaning |
+| --- | --- |
+| 🟢 green | On Twitch, luxthos.io reachable and logged in |
+| 🟡 yellow | On Twitch, still connecting — or the luxthos.io permission isn't granted yet (open the popup) |
+| 🔴 red | On Twitch, but logged out of luxthos.io or a fetch is failing |
+| ⚪ gray | Not on a Twitch page |
+
+It's per-tab, so switching tabs updates it.
+
 ## Choosing which channels
 
-Click the extension's toolbar icon for a small popup:
+Click the extension's toolbar icon for a small popup (in **Firefox** a
+just-loaded add-on's icon often sits in the » overflow / extensions menu — pin
+it, or reach the same screen via `about:addons` → LuxBux Overlay → **Options**):
 
 - **These channels** — a text box, one channel per line. Defaults to `luxthos`
   and `luxthoshobbies`. Paste a name, an `@name`, or a full `twitch.tv/...` URL;
@@ -41,13 +56,15 @@ Changes save automatically and take effect on open Twitch tabs immediately.
 
 ```
 src/                     shared code
-  background.js           fetches the balance, debounces, seeds defaults
+  background.js           fetches the balance, debounces, drives the icon
   overlay.js              draws the box, channel gating, SPA nav watch
   overlay.css             box styling
   popup.html/.js/.css     toolbar popup — balance + channel list editor
+  icons/                  generated status discs (gold/gray/green/yellow/red)
 manifests/
   manifest.chrome.json   Chrome + Edge (MV3 service worker)
   manifest.firefox.json  Firefox (MV3 event page + gecko id)
+tools/make-icons.mjs     regenerates src/icons/ (pure Node)
 build.ps1 / build.sh     assembles dist/chrome + dist/firefox (+ zips)
 ```
 
@@ -113,6 +130,8 @@ directly.
   `DEFAULT_SETTINGS` (`src/background.js`) and `DEFAULTS` (`src/overlay.js`).
 - **Beyond Twitch:** the `matches` array in both manifests. Use `"<all_urls>"`
   to run it on every site (channel gating still applies unless "all" is picked).
+- **Icon colours:** `ICONS` / `TITLES` / `colorFor()` in `src/background.js`;
+  regenerate the discs with `node tools/make-icons.mjs` after editing `COLORS`.
 
 ## Notes
 

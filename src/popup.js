@@ -1,10 +1,15 @@
 // Toolbar popup: shows the current balance and lets you edit which channels the
 // overlay appears on.
 
+// Firefox = promise-based `browser`; Chrome/Edge = `chrome` (promises in MV3).
+const ext = globalThis.browser || globalThis.chrome;
+
 const $ = (s) => document.querySelector(s);
 const LUX_ORIGIN = "https://luxthos.io/*";
 const DEFAULTS = { showAll: false, channels: ["luxthos", "luxthoshobbies"] };
 const HINT = "One channel per line — the name from its URL.";
+
+const send = (m) => Promise.resolve(ext.runtime.sendMessage(m)).catch(() => {});
 
 // Accepts "luxthos", "@luxthos", "twitch.tv/luxthos/videos", full URLs, commas.
 function parseChannels(text) {
@@ -24,7 +29,7 @@ function parseChannels(text) {
 function renderState(state) {
   const el = $("#balValue");
   if (!state) return void (el.textContent = "—");
-  if (state.status === "ok") el.textContent = state.balance.toLocaleString("en-US");
+  if (state.status === "ok") el.textContent = Number(state.balance).toLocaleString("en-US");
   else if (state.status === "logged-out") el.textContent = "log in";
   else if (state.status === "needs-permission") el.textContent = "no access";
   else el.textContent = "—";
@@ -32,7 +37,7 @@ function renderState(state) {
 
 async function hasAccess() {
   try {
-    return await chrome.permissions.contains({ origins: [LUX_ORIGIN] });
+    return await ext.permissions.contains({ origins: [LUX_ORIGIN] });
   } catch (e) {
     return true;
   }
@@ -51,25 +56,36 @@ let saveTimer;
 function scheduleSave() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
-    await chrome.storage.local.set({ settings: readForm() });
-    const h = $("#hint");
-    h.textContent = "Saved ✓";
-    h.classList.add("is-saved");
-    setTimeout(() => {
-      h.textContent = HINT;
-      h.classList.remove("is-saved");
-    }, 1400);
+    try {
+      await ext.storage.local.set({ settings: readForm() });
+      const h = $("#hint");
+      h.textContent = "Saved ✓";
+      h.classList.add("is-saved");
+      setTimeout(() => {
+        h.textContent = HINT;
+        h.classList.remove("is-saved");
+      }, 1400);
+    } catch (e) {
+      $("#hint").textContent = "Couldn't save: " + (e && e.message || e);
+    }
   }, 400);
 }
 
 async function init() {
-  const { settings = DEFAULTS, state } = await chrome.storage.local.get(["settings", "state"]);
-  renderState(state);
+  let settings = DEFAULTS;
+  let state;
+  try {
+    const r = (await ext.storage.local.get(["settings", "state"])) || {};
+    if (r.settings) settings = { ...DEFAULTS, ...r.settings };
+    state = r.state;
+  } catch (e) {
+    /* first run / storage unavailable — fall back to defaults */
+  }
 
+  renderState(state);
   $("#channels").value = (settings.channels || []).join("\n");
   $(`input[name="scope"][value="${settings.showAll ? "all" : "list"}"]`).checked = true;
   syncDisabled();
-
   $("#grant").hidden = await hasAccess();
 
   document.addEventListener("input", (e) => {
@@ -77,21 +93,19 @@ async function init() {
     scheduleSave();
   });
 
-  $("#refresh").addEventListener("click", () =>
-    chrome.runtime.sendMessage({ t: "refresh", force: true }).catch(() => {})
-  );
+  $("#refresh").addEventListener("click", () => send({ t: "refresh", force: true }));
 
   $("#grant").addEventListener("click", async () => {
     try {
-      await chrome.permissions.request({ origins: [LUX_ORIGIN] });
+      await ext.permissions.request({ origins: [LUX_ORIGIN] });
     } catch (e) {
       /* Chrome: already a manifest grant */
     }
     $("#grant").hidden = await hasAccess();
-    chrome.runtime.sendMessage({ t: "refresh", force: true }).catch(() => {});
+    send({ t: "refresh", force: true });
   });
 
-  chrome.storage.onChanged.addListener((c, area) => {
+  ext.storage.onChanged.addListener((c, area) => {
     if (area === "local" && c.state) renderState(c.state.newValue);
   });
 }

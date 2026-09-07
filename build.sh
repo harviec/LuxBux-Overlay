@@ -11,7 +11,7 @@ for target in chrome firefox; do
   out="$dist/$target"
   mkdir -p "$out"
 
-  cp "$root"/src/* "$out"/
+  cp -r "$root"/src/. "$out"/
   cp "$root/manifests/manifest.$target.json" "$out/manifest.json"
 
   ( cd "$out" && zip -qr "../luxbux-overlay-$target.zip" . )
