@@ -1,6 +1,12 @@
-// Polls luxthos.io for your LuxBux balance and stashes it in extension storage.
-// The fetch runs here (the background context), not in the Twitch page, so the
-// luxthos.io session cookie rides along as a first-party request.
+// Fetches your LuxBux balance from luxthos.io and stashes it in extension
+// storage. The fetch runs here (the background context), not in the Twitch
+// page, so the luxthos.io session cookie rides along as a first-party request.
+//
+// Polling is entirely driven by an open Twitch tab: the content script asks for
+// a refresh on arrival, on tab-focus, and every 15s *only while the stream it's
+// on is live*. Nothing is fetched when no tab is open, the tab is hidden, or the
+// channel is offline. Manual refresh (toolbar popup / clicking the chip) always
+// works.
 //
 // Cross-browser: runs as a Chrome/Edge service worker and a Firefox event page.
 // Firefox = promise-based `browser`; Chrome/Edge = `chrome` (promises in MV3).
@@ -8,7 +14,6 @@ const ext = globalThis.browser || globalThis.chrome;
 
 const BALANCE_URL = "https://luxthos.io/luxbux/api/me/balance";
 const LUX_ORIGIN = "https://luxthos.io/*";
-const ALARM = "luxbux-poll";
 
 // Which channels the overlay shows on, until the popup changes it.
 const DEFAULT_SETTINGS = {
@@ -17,10 +22,6 @@ const DEFAULT_SETTINGS = {
   grow: "left", // direction the box expands as the number gets longer
   anchor: "player", // "player" tracks the video; "window" pins to the viewport
 };
-
-// The open Twitch tab drives the fast 15s cadence (see overlay.js); this alarm
-// is only a slow backstop for when a tab is open but long-hidden/throttled.
-const POLL_MINUTES = 1;
 
 // Collapse near-simultaneous refresh requests (multiple tabs, a click landing
 // right after a tick) into one fetch. A forced request skips this.
@@ -120,41 +121,24 @@ async function poll() {
   }
 }
 
-function maybePoll(force) {
-  if (force || Date.now() - lastPollAt >= MIN_GAP_MS) poll();
-}
-
-function ensureAlarm() {
-  ext.alarms.create(ALARM, { periodInMinutes: POLL_MINUTES });
-}
-
 // ---- wiring ----------------------------------------------------------
 ext.runtime.onInstalled.addListener(async () => {
-  ensureAlarm();
   const { settings } = await ext.storage.local.get("settings");
   if (!settings) await ext.storage.local.set({ settings: DEFAULT_SETTINGS });
-  poll();
-});
-
-ext.runtime.onStartup.addListener(() => {
-  ensureAlarm();
-  poll();
-});
-
-ext.alarms.onAlarm.addListener((a) => {
-  if (a.name === ALARM) poll();
+  poll(); // one fetch so the first Twitch tab shows a number immediately
 });
 
 ext.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!msg) return;
 
-  // A Twitch tab checking in: remember it, colour its icon, keep the value warm.
+  // A Twitch tab checking in: remember it and colour its icon. No fetch here —
+  // the content script sends an explicit "refresh" when one is actually wanted.
   if (msg.t === "onTwitch") {
-    if (sender && sender.tab && sender.tab.id != null) {
-      twitchTabs.add(sender.tab.id);
-      paintTab(sender.tab.id, colorFor(currentState));
+    const id = sender && sender.tab && sender.tab.id;
+    if (id != null) {
+      twitchTabs.add(id);
+      paintTab(id, colorFor(currentState));
     }
-    maybePoll(false);
     return;
   }
 

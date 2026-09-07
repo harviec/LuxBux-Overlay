@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "LuxBux Overlay",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "description": "Floats your luxthos.io LuxBux balance over Twitch. Only you see it.",
-  "permissions": ["storage", "alarms"],
+  "permissions": ["storage"],
   "host_permissions": ["https://luxthos.io/*"],
   "background": { "service_worker": "background.js" },
   "content_scripts": [

@@ -9,8 +9,10 @@ One shared codebase for **Chrome**, **Edge**, and **Firefox** (142+).
 ## Features
 
 - Compact gold balance chip, styled after luxthos.io's own card.
-- Refreshes every **15 s** while a Twitch tab is open and visible — the same
-  cadence the site's page uses — with a "+N" pop when you earn.
+- Refreshes every **15 s** while you're on a live allowed channel with the tab
+  visible — the same cadence the site's page uses — with a "+N" pop when you
+  earn. Stops polling when the stream is offline, the tab is hidden, or no
+  Twitch tab is open.
 - Shows **only on the channels you pick** (default: `luxthos`,
   `luxthoshobbies`), or everywhere. Editable from the toolbar popup.
 - By default it's **pinned to the video player** and tracks it through page
@@ -30,21 +32,25 @@ One shared codebase for **Chrome**, **Edge**, and **Firefox** (142+).
 - `src/background.js` (a service worker on Chrome/Edge, an event page on
   Firefox) does the fetch. Because the request comes from the extension your
   luxthos.io session cookie is sent as a first-party request — no scraping, no
-  separate login. Requests from multiple tabs / clicks are debounced; a
-  1-minute alarm is a slow fallback for a long-hidden tab.
+  separate login. Requests from multiple tabs / clicks are debounced. It never
+  polls on its own — every fetch is triggered by an open Twitch tab.
 - `src/overlay.js` runs on `*://*.twitch.tv/*`, draws the chip, and reads the
-  stored balance. It parses the channel from the URL (handling `/moderator/…`,
+  stored balance. It drives all polling: one fetch on arrival / tab-focus, then
+  every 15s **only while `streamLive()` says the channel is live** (checked via
+  the player's live video, the viewer-count element, and the LIVE badge). It
+  parses the channel from the URL (handling `/moderator/…`,
   `/popout/…`, and `player.twitch.tv`) and follows Twitch's in-page navigation,
   so the chip shows/hides on channel changes without a reload. Position is a
   fraction of the player's bounding box, recomputed on scroll / resize / a
   `ResizeObserver` (theater mode) / `fullscreenchange` — where the chip is also
   moved into the fullscreen element so it stays visible.
 - `src/popup.html` is the toolbar popup: balance readout, a refresh button, the
-  channel list, and the grow-direction choice. Settings live in
+  channel list, and the anchor / grow-direction choices. Settings live in
   `chrome.storage.local` and autosave.
 
-Nothing leaves your browser except the request to luxthos.io. No analytics, no
-other hosts (the display font is the only optional external load — see Notes).
+Nothing leaves your browser except the request to luxthos.io, and only while
+you're actively watching a live allowed stream. No analytics, no other hosts
+(the display font is the only optional external load — see Notes).
 
 ## Toolbar icon colour
 
@@ -56,7 +62,9 @@ other hosts (the display font is the only optional external load — see Notes).
 | ⚪ gray | Not on a Twitch page |
 
 It's per-tab, so switching tabs updates it. The chip itself also shows
-**"log in"** or **"enable"** when something needs your attention.
+**"log in"** or **"enable"** when something needs your attention. While a stream
+is offline the extension isn't polling, so the colour reflects the last check
+until you refocus the tab or hit refresh.
 
 ## The popup
 
@@ -152,6 +160,7 @@ Lint a build with `npx web-ext lint --source-dir dist/firefox`.
 | Chip size | `.luxbux-value` `font-size` in `src/overlay.css` (`21px`; site uses `40px`) |
 | Starting corner | `#luxbux-overlay` `top` / `right` in `src/overlay.css` (until first drag) |
 | Refresh rate | `REFRESH_MS` in `src/overlay.js` (`15000`); keep it above `MIN_GAP_MS` in `src/background.js` |
+| Live detection | `streamLive()` in `src/overlay.js` (loosen it if Twitch changes the LIVE badge / viewer-count markup) |
 | Default channels / grow / anchor | `DEFAULTS` in `src/overlay.js` and `DEFAULT_SETTINGS` in `src/background.js` |
 | Player detection (if Twitch renames classes) | `PLAYER_SELECTORS` in `src/overlay.js` |
 | Run beyond Twitch | `matches` in both manifests (`"<all_urls>"` — channel gating still applies unless "all" is picked) |

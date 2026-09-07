@@ -133,6 +133,19 @@
     return !!ch && list.some((c) => String(c).toLowerCase() === ch);
   }
 
+  // Is the stream on this page actually live? Used to stop the 15s polling when
+  // it's offline — the balance can't move from watch time then. Errs toward
+  // "live" so we never miss a poll while the page is still settling.
+  let channelSince = performance.now();
+  function streamLive() {
+    const v = document.querySelector("video");
+    if (v && v.readyState >= 2 && v.duration === Infinity) return true;
+    if (document.querySelector('[data-a-target="animated-channel-viewers-count"]')) return true;
+    const st = document.querySelector('[class*="ChannelStatusTextIndicator"]');
+    if (st && /live/i.test(st.textContent || "")) return true;
+    return performance.now() - channelSince < 8000; // still loading — don't assume
+  }
+
   function applyGate() {
     const show = allowedHere();
     box.hidden = !show;
@@ -339,13 +352,22 @@
 
   // Catch-all: channel switches (SPA), theater toggles, player re-mounts.
   let lastUrl = location.href;
+  let wasLive = false;
   setInterval(() => {
     if (location.href !== lastUrl) {
       lastUrl = location.href;
+      channelSince = performance.now();
+      wasLive = false;
       applyGate();
     }
     watchPlayer();
     reposition();
+    // Refresh once the moment a stream we're watching goes live.
+    if (onAllowed && !document.hidden) {
+      const live = streamLive();
+      if (live && !wasLive) ask();
+      wasLive = live;
+    }
   }, 1000);
 
   // ---- drag to move / click to refresh ---------------------------------
@@ -374,17 +396,19 @@
   });
 
   // ---- keep it live ---------------------------------------------------
-  // Every 15s while visible: check in (icon + warm value). On an allowed
-  // channel that also refreshes the number the box is showing.
+  // Every 15s while the tab is visible: check in (keeps the toolbar icon
+  // current — no network). Refresh the balance only on an allowed channel
+  // whose stream is actually live; when it's offline the number can't move
+  // from watch time, so there's nothing to fetch.
   setInterval(() => {
     if (document.hidden) return;
     ping();
-    if (onAllowed) ask();
+    if (onAllowed && streamLive()) ask();
   }, REFRESH_MS);
 
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) return;
     ping();
-    if (onAllowed) ask();
+    if (onAllowed) ask(); // one refresh on refocus, live or not
   });
 })();
