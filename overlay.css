@@ -1,0 +1,100 @@
+/* Compact take on luxthos.io's gold ".stat-card" — same palette, ~half the size. */
+
+#luxbux-overlay {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 2147483647;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 5px 12px 6px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 201, 60, 0.28);
+  background:
+    radial-gradient(60% 150% at 50% 116%, rgba(255, 201, 60, 0.16) 0%, rgba(255, 201, 60, 0) 72%),
+    linear-gradient(100deg, rgba(255, 201, 60, 0.07) 0%, rgba(168, 85, 247, 0.07) 100%),
+    #12151f;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  font-family: "Space Grotesk", system-ui, -apple-system, sans-serif;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+#luxbux-overlay:active { cursor: grabbing; }
+
+#luxbux-overlay .luxbux-label {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #ffc93c;
+  opacity: 0.9;
+}
+
+#luxbux-overlay .luxbux-value-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: baseline;
+}
+
+#luxbux-overlay .luxbux-value {
+  font-size: 21px;
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.5px;
+  color: #ffe9a8;
+  text-shadow: 0 0 16px rgba(255, 201, 60, 0.34);
+  font-variant-numeric: tabular-nums;
+}
+
+#luxbux-overlay.is-problem .luxbux-value {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0;
+  color: #9aa0b8;
+  text-shadow: none;
+}
+
+#luxbux-overlay .luxbux-delta {
+  position: absolute;
+  left: 100%;
+  top: 50%;
+  margin-left: 7px;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  color: #7ef0a6;
+  text-shadow: 0 0 12px rgba(126, 240, 166, 0.5);
+  font-variant-numeric: tabular-nums;
+  opacity: 0;
+  transform: translateY(-30%);
+  pointer-events: none;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+#luxbux-overlay .luxbux-delta.is-shown {
+  opacity: 1;
+  transform: translateY(-50%);
+}
+
+@keyframes luxbux-pop {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.09); }
+  100% { transform: scale(1); }
+}
+#luxbux-overlay .luxbux-value.is-bumped { animation: luxbux-pop 0.55s ease; }
+
+@keyframes luxbux-glow {
+  0% { box-shadow: 0 6px 20px rgba(0,0,0,0.35), 0 0 0 0 rgba(255,201,60,0); border-color: rgba(255,201,60,0.28); }
+  22% { box-shadow: 0 6px 20px rgba(0,0,0,0.35), 0 0 22px 4px rgba(255,201,60,0.32); border-color: rgba(255,201,60,0.8); }
+  100% { box-shadow: 0 6px 20px rgba(0,0,0,0.35), 0 0 0 0 rgba(255,201,60,0); border-color: rgba(255,201,60,0.28); }
+}
+#luxbux-overlay.is-earning { animation: luxbux-glow 1.6s ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  #luxbux-overlay .luxbux-value.is-bumped,
+  #luxbux-overlay.is-earning { animation: none; }
+  #luxbux-overlay .luxbux-delta { transition: none; }
+}
