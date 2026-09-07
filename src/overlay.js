@@ -1,13 +1,13 @@
 // Draws the little floating LuxBux box on Twitch and keeps it in sync with
 // whatever background.js last stored. Drag to move (position is remembered),
-// single-click to force a refresh.
+// single-click to force a refresh. Same file for Chrome, Edge and Firefox.
 
 (() => {
   if (window.__luxbuxOverlay) return;
   window.__luxbuxOverlay = true;
 
   // Best-effort: match the site's display font. If Twitch's CSP blocks this,
-  // it silently falls back to the system stack below.
+  // it silently falls back to the system stack in overlay.css.
   if (!document.getElementById("luxbux-font")) {
     const link = document.createElement("link");
     link.id = "luxbux-font";
@@ -39,9 +39,13 @@
 
   function render(state) {
     if (!state) return;
-    const problem = state.status !== "ok";
-    box.classList.toggle("is-problem", problem);
+    box.classList.toggle("is-problem", state.status !== "ok");
 
+    if (state.status === "needs-permission") {
+      valueEl.textContent = "enable";
+      box.title = "Click the LuxBux toolbar icon once to allow luxthos.io access";
+      return;
+    }
     if (state.status === "logged-out") {
       valueEl.textContent = "log in";
       box.title = "Open luxthos.io and log in with Twitch, then click here";

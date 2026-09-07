@@ -4,48 +4,96 @@ A tiny browser extension that floats your **LuxBux** balance (from
 `luxthos.io/luxbux/`) on top of Twitch. Only *you* see it — it's painted in your
 own browser, not composited into anyone's stream.
 
+Works on **Chrome**, **Edge**, and **Firefox** from one shared codebase.
+
 ## How it works
 
 - `luxthos.io` serves the balance from a small JSON endpoint,
   `GET /luxbux/api/me/balance` → `{ "balance": 100 }`, authenticated by your
   normal luxthos.io login cookie.
-- `background.js` (the extension's service worker) fetches that endpoint every
-  ~60s. Because the request is made from the extension, your luxthos.io session
+- `src/background.js` (the extension's background worker) fetches that endpoint
+  every ~60s. The request is made from the extension, so your luxthos.io session
   cookie is sent as a first-party request — no scraping, no separate login.
-- `overlay.js` draws the box on `twitch.tv` and updates it whenever the stored
-  balance changes. Drag it anywhere (position is remembered); single-click it to
-  refresh immediately.
-- If you're not logged into luxthos.io in this browser, the box shows
-  **"log in"** — visit luxthos.io, log in with Twitch, then click the box.
+- `src/overlay.js` draws the box on `twitch.tv` and updates it whenever the
+  stored balance changes. Drag it anywhere (position is remembered); single-click
+  it to refresh immediately.
+- Box states: a number (normal), **"log in"** (not logged into luxthos.io in this
+  browser — visit the site, log in, then click the box), **"enable"** (Firefox
+  only — click the toolbar icon once to grant luxthos.io access).
 
-## Install (Chrome / Edge)
+## Layout
 
-1. Go to `chrome://extensions`.
-2. Turn on **Developer mode** (top right).
-3. Click **Load unpacked** and pick this `luxbux-overlay` folder.
-4. Open (or reload) a `twitch.tv` tab. The gold box appears top-right.
+```
+src/                     shared code (background.js, overlay.js, overlay.css)
+manifests/
+  manifest.chrome.json   Chrome + Edge (MV3 service worker)
+  manifest.firefox.json  Firefox (MV3 event page + gecko id)
+build.ps1 / build.sh     assembles dist/chrome + dist/firefox (+ zips)
+```
 
-Make sure you're logged into `luxthos.io` in the same browser profile.
+## Build
+
+```powershell
+./build.ps1
+```
+
+(or `./build.sh` on a POSIX shell). Produces:
+
+```
+dist/chrome/    dist/firefox/          <- load-unpacked folders
+dist/luxbux-overlay-chrome.zip
+dist/luxbux-overlay-firefox.zip
+```
+
+For quick dev you can also just load `manifests/manifest.chrome.json`'s folder by
+hand, but the build script keeps the two manifests in sync with `src/`.
+
+## Install — Chrome / Edge
+
+1. `./build.ps1`
+2. Chrome: `chrome://extensions` · Edge: `edge://extensions`
+3. Turn on **Developer mode**.
+4. **Load unpacked** → select `dist/chrome`.
+5. Open/reload a `twitch.tv` tab. The gold box appears top-right.
+
+Be logged into `luxthos.io` in the same browser profile.
+
+## Install — Firefox
+
+**Temporary (simplest, gone on restart):**
+
+1. `./build.ps1`
+2. Go to `about:debugging#/runtime/this-firefox`.
+3. **Load Temporary Add-on…** → pick `dist/firefox/manifest.json`.
+4. If the box shows **"enable"**, click the extension's toolbar icon once and
+   accept the luxthos.io permission.
+
+**Permanent, regular Firefox** (needs a signed build — Mozilla requires it):
+
+1. Make a free account at <https://addons.mozilla.org>.
+2. Submit `dist/luxbux-overlay-firefox.zip` as an **unlisted** add-on (it's only
+   for you; it won't appear in the store). Mozilla auto-signs it.
+3. Download the signed `.xpi`, then in `about:addons` use the gear →
+   **Install Add-on From File…**.
+
+Alternatively `npx web-ext sign --channel unlisted` does the same from the
+command line, or use Firefox **Developer Edition / Nightly / ESR** with
+`about:config` → `xpinstall.signatures.required` = `false` and install the zip
+directly.
 
 ## Tweaks
 
-- **Size / colours:** `overlay.css` — `.luxbux-value` `font-size` is the main
+- **Size / colours:** `src/overlay.css` — `.luxbux-value` `font-size` is the main
   dial (currently `21px`; the site uses `40px`).
-- **Default corner:** `#luxbux-overlay` `top` / `right` in `overlay.css`.
-- **Poll rate:** `POLL_MINUTES` in `background.js` (Chrome's alarm minimum is
+- **Default corner:** `#luxbux-overlay` `top` / `right` in `src/overlay.css`.
+- **Poll rate:** `POLL_MINUTES` in `src/background.js` (browser alarm minimum is
   ~1 min; focus/click refreshes fill the gaps).
-- **Where it shows:** the `matches` array in `manifest.json`. Use
-  `"<all_urls>"` to float it on every site.
-
-## Firefox
-
-Firefox needs a couple of manifest changes (`browser_specific_settings` with an
-add-on id, and `background.scripts` instead of `background.service_worker`).
-Ask if you want a Firefox build.
+- **Where it shows:** the `matches` array in both manifests. Use `"<all_urls>"`
+  to float it on every site.
 
 ## Notes
 
 - This only reads your own balance through the same API the site's own page
   uses. It doesn't touch anyone else's stream or data.
-- The Space Grotesk font is loaded from Google Fonts to match the site; if
-  Twitch's content policy blocks it, the box falls back to your system font.
+- The Space Grotesk font is loaded from Google Fonts to match the site; if a
+  browser's content policy blocks it, the box falls back to the system font.
