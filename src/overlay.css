@@ -81,6 +81,15 @@
   transform: translateY(-50%);
 }
 
+/* Put the "+N" on whichever side faces the screen interior, so it doesn't
+   clip past the edge the box is pinned to. */
+#luxbux-overlay.grow-left .luxbux-delta {
+  left: auto;
+  right: 100%;
+  margin-left: 0;
+  margin-right: 7px;
+}
+
 @keyframes luxbux-pop {
   0% { transform: scale(1); }
   35% { transform: scale(1.09); }

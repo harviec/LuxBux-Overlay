@@ -22,6 +22,10 @@ Works on **Chrome**, **Edge**, and **Firefox** from one shared codebase.
 - The box only appears on the channels you choose (see below); on every other
   channel it stays hidden and the extension does nothing. Twitch's in-page
   navigation is handled, so switching channels shows/hides it without a reload.
+- Drag it anywhere — the spot is remembered across reloads. It's pinned to the
+  near edge, so as the number gains digits it grows toward screen centre and
+  never slides off. The **grow direction** (which edge it stays pinned to) is a
+  popup setting; the "+N" earn popup follows it.
 - Box states: a number (normal), **"log in"** (not logged into luxthos.io in this
   browser — visit the site, log in, then click the box), **"enable"** (Firefox
   only — open the toolbar popup and grant luxthos.io access).
@@ -49,6 +53,8 @@ it, or reach the same screen via `about:addons` → LuxBux Overlay → **Options
   and `luxthoshobbies`. Paste a name, an `@name`, or a full `twitch.tv/...` URL;
   it's normalised on save.
 - **All Twitch channels** — show the overlay everywhere on Twitch.
+- **Grow direction** — as the balance gets more digits, expand ← left (stay
+  pinned to the right) or right → (stay pinned to the left).
 
 Changes save automatically and take effect on open Twitch tabs immediately.
 
@@ -123,7 +129,9 @@ directly.
 
 - **Size / colours:** `src/overlay.css` — `.luxbux-value` `font-size` is the main
   dial (currently `21px`; the site uses `40px`).
-- **Default corner:** `#luxbux-overlay` `top` / `right` in `src/overlay.css`.
+- **Default corner:** `#luxbux-overlay` `top` / `right` in `src/overlay.css`
+  (applies until you first drag it). Grow direction: the popup, or the `grow`
+  default in `DEFAULTS` / `DEFAULT_SETTINGS`.
 - **Poll rate:** `REFRESH_MS` in `src/overlay.js` (default `15000`). The
   `MIN_GAP_MS` debounce in `src/background.js` should stay below that.
 - **Which channels:** the toolbar popup. The baked-in default is in

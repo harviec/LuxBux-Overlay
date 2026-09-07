@@ -11,7 +11,11 @@ const LUX_ORIGIN = "https://luxthos.io/*";
 const ALARM = "luxbux-poll";
 
 // Which channels the overlay shows on, until the popup changes it.
-const DEFAULT_SETTINGS = { showAll: false, channels: ["luxthos", "luxthoshobbies"] };
+const DEFAULT_SETTINGS = {
+  showAll: false,
+  channels: ["luxthos", "luxthoshobbies"],
+  grow: "left", // direction the box expands as the number gets longer
+};
 
 // The open Twitch tab drives the fast 15s cadence (see overlay.js); this alarm
 // is only a slow backstop for when a tab is open but long-hidden/throttled.

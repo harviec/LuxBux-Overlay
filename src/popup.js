@@ -6,7 +6,7 @@ const ext = globalThis.browser || globalThis.chrome;
 
 const $ = (s) => document.querySelector(s);
 const LUX_ORIGIN = "https://luxthos.io/*";
-const DEFAULTS = { showAll: false, channels: ["luxthos", "luxthoshobbies"] };
+const DEFAULTS = { showAll: false, channels: ["luxthos", "luxthoshobbies"], grow: "left" };
 const HINT = "One channel per line — the name from its URL.";
 
 const send = (m) => Promise.resolve(ext.runtime.sendMessage(m)).catch(() => {});
@@ -45,7 +45,9 @@ async function hasAccess() {
 
 function readForm() {
   const showAll = $('input[name="scope"]:checked').value === "all";
-  return { showAll, channels: parseChannels($("#channels").value) };
+  const growEl = $('input[name="grow"]:checked');
+  const grow = growEl && growEl.value === "right" ? "right" : "left";
+  return { showAll, grow, channels: parseChannels($("#channels").value) };
 }
 
 function syncDisabled() {
@@ -85,6 +87,7 @@ async function init() {
   renderState(state);
   $("#channels").value = (settings.channels || []).join("\n");
   $(`input[name="scope"][value="${settings.showAll ? "all" : "list"}"]`).checked = true;
+  $(`input[name="grow"][value="${settings.grow === "right" ? "right" : "left"}"]`).checked = true;
   syncDisabled();
   $("#grant").hidden = await hasAccess();
 

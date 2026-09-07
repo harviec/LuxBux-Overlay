@@ -17,7 +17,9 @@
   const ext = globalThis.browser || globalThis.chrome;
 
   const REFRESH_MS = 15000; // same cadence luxthos.io's own page uses
-  const DEFAULTS = { showAll: false, channels: ["luxthos", "luxthoshobbies"] };
+  const DEFAULTS = { showAll: false, channels: ["luxthos", "luxthoshobbies"], grow: "left" };
+
+  const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
 
   const msg = (m) => Promise.resolve(ext.runtime.sendMessage(m)).catch(() => {});
   const ask = (force) => msg({ t: "refresh", force: !!force });
@@ -123,16 +125,61 @@
     onAllowed = show;
   }
 
+  // ---- position + grow direction --------------------------------------
+  // pos is stored anchored to whichever horizontal edge the box grows away
+  // from, so widening (more digits) never pushes it off-screen and the drop
+  // spot is remembered across reloads.
+  function growsLeft() {
+    return !settings || settings.grow !== "right";
+  }
+
+  function applyGrow() {
+    box.classList.toggle("grow-left", growsLeft());
+    box.classList.toggle("grow-right", !growsLeft());
+  }
+
+  function applyPos(pos) {
+    if (!pos) return; // no saved spot — CSS default (top-right, grows left)
+    const maxTop = Math.max(4, window.innerHeight - 40);
+    box.style.top = clamp(Number(pos.top) || 12, 4, maxTop) + "px";
+    box.style.bottom = "auto";
+    const maxH = Math.max(4, window.innerWidth - 40);
+    const h = clamp(Number(pos.h) || 12, 4, maxH) + "px";
+    if (pos.hEdge === "right") {
+      box.style.right = h;
+      box.style.left = "auto";
+    } else {
+      box.style.left = h;
+      box.style.right = "auto";
+    }
+  }
+
+  // Turn the box's current on-screen rect into an edge-anchored pos for the
+  // active grow direction.
+  function posFromRect() {
+    const r = box.getBoundingClientRect();
+    return growsLeft()
+      ? { hEdge: "right", h: Math.round(window.innerWidth - r.right), top: Math.round(r.top) }
+      : { hEdge: "left", h: Math.round(r.left), top: Math.round(r.top) };
+  }
+
+  function savePos() {
+    const pos = posFromRect();
+    ext.storage.local.set({ pos });
+    applyPos(pos);
+  }
+
   // ---- load + react to storage ------------------------------------------
   Promise.resolve(ext.storage.local.get(["settings", "state", "pos"]))
     .then((r) => {
       r = r || {};
       if (r.settings) settings = { ...DEFAULTS, ...r.settings };
-      if (r.pos) {
-        box.style.left = r.pos.left;
-        box.style.top = r.pos.top;
-        box.style.right = "auto";
+      applyGrow();
+      let pos = r.pos;
+      if (pos && pos.hEdge == null && pos.left != null) {
+        pos = { hEdge: "left", h: parseInt(pos.left, 10), top: parseInt(pos.top, 10) };
       }
+      applyPos(pos);
       render(r.state);
       applyGate();
     })
@@ -142,7 +189,11 @@
     if (area !== "local") return;
     if (changes.state) render(changes.state.newValue);
     if (changes.settings) {
+      const wasLeft = growsLeft();
       settings = { ...DEFAULTS, ...changes.settings.newValue };
+      applyGrow();
+      // Re-anchor in place so the box keeps its spot but flips growth direction.
+      if (growsLeft() !== wasLeft && !box.hidden) savePos();
       applyGate();
     }
   });
@@ -179,7 +230,7 @@
   box.addEventListener("pointerup", () => {
     if (!drag) return;
     if (drag.moved) {
-      ext.storage.local.set({ pos: { left: box.style.left, top: box.style.top } });
+      savePos(); // normalise the drop point to an edge anchor + remember it
     } else {
       ask(true); // manual click: refresh now, skip the debounce
     }
