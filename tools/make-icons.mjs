@@ -12,7 +12,8 @@ mkdirSync(OUT, { recursive: true });
 const COLORS = {
   gold: [0xff, 0xc9, 0x3c], // branding (extensions page)
   gray: [0x82, 0x8a, 0xa0], // not on a Twitch page
-  green: [0x3f, 0xba, 0x74], // connected + healthy
+  green: [0x3f, 0xba, 0x74], // connected, stream live
+  blue: [0x4a, 0x95, 0xe0], // connected, stream offline (idle — not polling)
   yellow: [0xf0, 0xbe, 0x46], // missing a connection / still connecting
   red: [0xe2, 0x5c, 0x5c], // broken / needs login
 };

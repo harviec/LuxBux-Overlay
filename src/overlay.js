@@ -41,7 +41,7 @@
   const ask = (force) => msg({ t: "refresh", force: !!force });
   // Tells the background "a Twitch tab is here" so it colours the toolbar icon
   // and keeps the balance fresh even on non-Luxthos channels.
-  const ping = () => msg({ t: "onTwitch" });
+  const ping = () => msg({ t: "onTwitch", allowed: onAllowed, live: streamLive() });
 
   // Best-effort: match the site's display font. If Twitch's CSP blocks this,
   // it silently falls back to the system stack in overlay.css.
@@ -352,21 +352,25 @@
 
   // Catch-all: channel switches (SPA), theater toggles, player re-mounts.
   let lastUrl = location.href;
-  let wasLive = false;
+  let wasLive = null; // unknown until the first check
   setInterval(() => {
     if (location.href !== lastUrl) {
       lastUrl = location.href;
       channelSince = performance.now();
-      wasLive = false;
+      wasLive = null;
       applyGate();
     }
     watchPlayer();
     reposition();
-    // Refresh once the moment a stream we're watching goes live.
+    // React the moment live status flips: repaint the toolbar icon, and refresh
+    // the balance when a stream we're watching comes online.
     if (onAllowed && !document.hidden) {
       const live = streamLive();
-      if (live && !wasLive) ask();
-      wasLive = live;
+      if (live !== wasLive) {
+        ping();
+        if (live) ask();
+        wasLive = live;
+      }
     }
   }, 1000);
 

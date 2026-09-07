@@ -56,15 +56,18 @@ you're actively watching a live allowed stream. No analytics, no other hosts
 
 | Colour | Meaning |
 | --- | --- |
-| 🟢 green | On Twitch, luxthos.io reachable and logged in |
+| 🟢 green | On an allowed channel, connected, stream live (polling every 15 s) |
+| 🔵 blue | On an allowed channel, connected, but the stream is offline (idle — not polling) |
 | 🟡 yellow | On Twitch, still connecting — or the luxthos.io permission isn't granted yet (open the popup) |
 | 🔴 red | On Twitch, but logged out of luxthos.io or a fetch is failing |
 | ⚪ gray | Not on a Twitch page |
 
+(On a Twitch page that isn't one of your channels it stays green when connected — "offline" only applies to channels the overlay is watching.)
+
 It's per-tab, so switching tabs updates it. The chip itself also shows
 **"log in"** or **"enable"** when something needs your attention. While a stream
-is offline the extension isn't polling, so the colour reflects the last check
-until you refocus the tab or hit refresh.
+is offline (blue) the extension isn't polling, so a *connection* problem that
+develops during that time won't show until you refocus the tab or hit refresh.
 
 ## The popup
 
@@ -90,7 +93,7 @@ src/                     shared, unbundled extension code
   overlay.js              the chip: channel gating, player/window anchoring, SPA nav
   overlay.css             chip styling
   popup.html/.js/.css     toolbar popup / options page
-  icons/                  generated status discs (gold/gray/green/yellow/red)
+  icons/                  generated status discs (gold/gray/green/blue/yellow/red)
 manifests/
   manifest.chrome.json    Chrome + Edge (MV3 service worker)
   manifest.firefox.json   Firefox 142+ (MV3 event page, gecko id, data-consent)

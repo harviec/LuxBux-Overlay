@@ -34,34 +34,40 @@ ext.storage.local.get("state").then((r) => {
 });
 
 // ---- toolbar icon --------------------------------------------------------
-// green  = on Twitch, luxthos.io reachable and logged in
+// green  = on Twitch, connected, and the stream is live (polling)
+// blue   = on Twitch, connected, but the stream is offline (idle — not polling)
 // yellow = on Twitch, still connecting or missing the luxthos.io permission
 // red    = on Twitch, but logged out / a fetch is failing
 // gray   = not on a Twitch page (manifest default_icon)
 const ICONS = {
   green: { 16: "icons/green-16.png", 32: "icons/green-32.png" },
+  blue: { 16: "icons/blue-16.png", 32: "icons/blue-32.png" },
   yellow: { 16: "icons/yellow-16.png", 32: "icons/yellow-32.png" },
   red: { 16: "icons/red-16.png", 32: "icons/red-32.png" },
   gray: { 16: "icons/gray-16.png", 32: "icons/gray-32.png" },
 };
 const TITLES = {
-  green: "LuxBux — connected",
+  green: "LuxBux — connected · stream live",
+  blue: "LuxBux — connected · stream offline",
   yellow: "LuxBux — finishing setup (open this popup)",
   red: "LuxBux — not connected (check your luxthos.io login)",
   gray: "LuxBux — open a Twitch channel",
 };
 
-const twitchTabs = new Set();
+// tabId -> { live, allowed } as last reported by that tab's content script
+const tabInfo = new Map();
 
-function colorFor(state) {
+function colorFor(state, info) {
   const s = state && state.status;
-  if (s === "ok") return "green";
   if (s === "logged-out" || s === "error") return "red";
   if (s === "needs-permission") return "yellow";
-  return "yellow"; // no reading yet — still connecting
+  if (s !== "ok") return "yellow"; // no reading yet — still connecting
+  if (info && info.allowed && info.live === false) return "blue";
+  return "green";
 }
 
-async function paintTab(tabId, color) {
+async function paintTab(tabId, colorOverride) {
+  const color = colorOverride || colorFor(currentState, tabInfo.get(tabId));
   try {
     await ext.action.setIcon({ tabId, path: ICONS[color] });
     await ext.action.setTitle({ tabId, title: TITLES[color] });
@@ -71,8 +77,7 @@ async function paintTab(tabId, color) {
 }
 
 function paintAllTwitch() {
-  const color = colorFor(currentState);
-  for (const id of twitchTabs) paintTab(id, color);
+  for (const id of tabInfo.keys()) paintTab(id);
 }
 
 // ---- balance polling ---------------------------------------------------
@@ -131,13 +136,13 @@ ext.runtime.onInstalled.addListener(async () => {
 ext.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!msg) return;
 
-  // A Twitch tab checking in: remember it and colour its icon. No fetch here —
-  // the content script sends an explicit "refresh" when one is actually wanted.
+  // A Twitch tab checking in: record live/allowed state and colour its icon. No
+  // fetch here — the content script sends an explicit "refresh" when it wants one.
   if (msg.t === "onTwitch") {
     const id = sender && sender.tab && sender.tab.id;
     if (id != null) {
-      twitchTabs.add(id);
-      paintTab(id, colorFor(currentState));
+      tabInfo.set(id, { live: !!msg.live, allowed: !!msg.allowed });
+      paintTab(id);
     }
     return;
   }
@@ -154,10 +159,10 @@ ext.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
 // Forget closed tabs; grey the icon when a tracked tab navigates away from Twitch
 // (the content script re-checks in if the new page is still Twitch).
-ext.tabs.onRemoved.addListener((tabId) => twitchTabs.delete(tabId));
+ext.tabs.onRemoved.addListener((tabId) => tabInfo.delete(tabId));
 ext.tabs.onUpdated.addListener((tabId, info) => {
-  if (info && info.status === "loading" && twitchTabs.has(tabId)) {
-    twitchTabs.delete(tabId);
+  if (info && info.status === "loading" && tabInfo.has(tabId)) {
+    tabInfo.delete(tabId);
     paintTab(tabId, "gray");
   }
 });
