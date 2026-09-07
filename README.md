@@ -63,7 +63,7 @@ src/                     shared code
   icons/                  generated status discs (gold/gray/green/yellow/red)
 manifests/
   manifest.chrome.json   Chrome + Edge (MV3 service worker)
-  manifest.firefox.json  Firefox (MV3 event page + gecko id)
+  manifest.firefox.json  Firefox 142+ (MV3 event page + gecko id)
 tools/make-icons.mjs     regenerates src/icons/ (pure Node)
 build.ps1 / build.sh     assembles dist/chrome + dist/firefox (+ zips)
 ```
