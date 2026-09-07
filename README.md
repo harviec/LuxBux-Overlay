@@ -19,14 +19,32 @@ Works on **Chrome**, **Edge**, and **Firefox** from one shared codebase.
 - `src/overlay.js` draws the box on `twitch.tv` and updates it whenever the
   stored balance changes. Drag it anywhere (position is remembered); single-click
   it to refresh immediately.
+- The box only appears on the channels you choose (see below); on every other
+  channel it stays hidden and the extension does nothing. Twitch's in-page
+  navigation is handled, so switching channels shows/hides it without a reload.
 - Box states: a number (normal), **"log in"** (not logged into luxthos.io in this
   browser — visit the site, log in, then click the box), **"enable"** (Firefox
-  only — click the toolbar icon once to grant luxthos.io access).
+  only — open the toolbar popup and grant luxthos.io access).
+
+## Choosing which channels
+
+Click the extension's toolbar icon for a small popup:
+
+- **These channels** — a text box, one channel per line. Defaults to `luxthos`
+  and `luxthoshobbies`. Paste a name, an `@name`, or a full `twitch.tv/...` URL;
+  it's normalised on save.
+- **All Twitch channels** — show the overlay everywhere on Twitch.
+
+Changes save automatically and take effect on open Twitch tabs immediately.
 
 ## Layout
 
 ```
-src/                     shared code (background.js, overlay.js, overlay.css)
+src/                     shared code
+  background.js           fetches the balance, debounces, seeds defaults
+  overlay.js              draws the box, channel gating, SPA nav watch
+  overlay.css             box styling
+  popup.html/.js/.css     toolbar popup — balance + channel list editor
 manifests/
   manifest.chrome.json   Chrome + Edge (MV3 service worker)
   manifest.firefox.json  Firefox (MV3 event page + gecko id)
@@ -56,9 +74,10 @@ hand, but the build script keeps the two manifests in sync with `src/`.
 2. Chrome: `chrome://extensions` · Edge: `edge://extensions`
 3. Turn on **Developer mode**.
 4. **Load unpacked** → select `dist/chrome`.
-5. Open/reload a `twitch.tv` tab. The gold box appears top-right.
+5. Open/reload `twitch.tv/luxthos`. The gold box appears top-right.
 
-Be logged into `luxthos.io` in the same browser profile.
+Be logged into `luxthos.io` in the same browser profile. Pin the extension icon
+to reach the channel-list popup.
 
 ## Install — Firefox
 
@@ -67,8 +86,8 @@ Be logged into `luxthos.io` in the same browser profile.
 1. `./build.ps1`
 2. Go to `about:debugging#/runtime/this-firefox`.
 3. **Load Temporary Add-on…** → pick `dist/firefox/manifest.json`.
-4. If the box shows **"enable"**, click the extension's toolbar icon once and
-   accept the luxthos.io permission.
+4. If the box shows **"enable"**, open the toolbar popup and click
+   **Grant luxthos.io access**.
 
 **Permanent, regular Firefox** (needs a signed build — Mozilla requires it):
 
@@ -90,8 +109,10 @@ directly.
 - **Default corner:** `#luxbux-overlay` `top` / `right` in `src/overlay.css`.
 - **Poll rate:** `REFRESH_MS` in `src/overlay.js` (default `15000`). The
   `MIN_GAP_MS` debounce in `src/background.js` should stay below that.
-- **Where it shows:** the `matches` array in both manifests. Use `"<all_urls>"`
-  to float it on every site.
+- **Which channels:** the toolbar popup. The baked-in default is in
+  `DEFAULT_SETTINGS` (`src/background.js`) and `DEFAULTS` (`src/overlay.js`).
+- **Beyond Twitch:** the `matches` array in both manifests. Use `"<all_urls>"`
+  to run it on every site (channel gating still applies unless "all" is picked).
 
 ## Notes
 

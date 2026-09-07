@@ -1,5 +1,7 @@
 /* Compact take on luxthos.io's gold ".stat-card" — same palette, ~half the size. */
 
+#luxbux-overlay[hidden] { display: none !important; }
+
 #luxbux-overlay {
   position: fixed;
   top: 12px;

@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="bal" id="bal">
+    <span class="bal__label">LuxBux</span>
+    <span class="bal__value" id="balValue">—</span>
+    <button class="bal__refresh" id="refresh" title="Refresh now" aria-label="Refresh now">&#x21bb;</button>
+  </div>
+
+  <button class="grant" id="grant" hidden>Grant luxthos.io access</button>
+
+  <div class="sect">
+    <div class="sect__title">Show the overlay on</div>
+    <label class="opt"><input type="radio" name="scope" value="list" /> <span>These channels</span></label>
+    <label class="opt"><input type="radio" name="scope" value="all" /> <span>All Twitch channels</span></label>
+    <textarea id="channels" rows="4" spellcheck="false" autocomplete="off"
+      placeholder="luxthos&#10;luxthoshobbies"></textarea>
+    <div class="hint" id="hint">One channel per line — the name from its URL.</div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

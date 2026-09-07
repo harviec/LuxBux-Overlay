@@ -1,0 +1,113 @@
+:root {
+  color-scheme: dark;
+  --bg: #0a0c12;
+  --surface: #12151f;
+  --line: #232838;
+  --ink: #e9eaf2;
+  --ink-dim: #9aa0b8;
+  --gold: #ffc93c;
+  --gold-ink: #ffe9a8;
+  --purple: #a855f7;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  width: 260px;
+  margin: 0;
+  padding: 12px;
+  background: var(--bg);
+  color: var(--ink);
+  font: 13px/1.5 "IBM Plex Sans", system-ui, -apple-system, Segoe UI, sans-serif;
+}
+
+.bal {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 201, 60, 0.26);
+  background:
+    radial-gradient(60% 150% at 50% 130%, rgba(255, 201, 60, 0.14) 0%, rgba(255, 201, 60, 0) 72%),
+    var(--surface);
+}
+.bal__label {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+  color: var(--gold);
+  opacity: 0.9;
+}
+.bal__value {
+  margin-left: auto;
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--gold-ink);
+  font-variant-numeric: tabular-nums;
+}
+.bal__refresh {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--ink-dim);
+  font-size: 14px;
+  cursor: pointer;
+}
+.bal__refresh:hover { color: var(--ink); border-color: #2f3648; }
+
+.grant {
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--purple);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sect { margin-top: 14px; }
+.sect__title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin-bottom: 7px;
+}
+
+.opt {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 0;
+  cursor: pointer;
+}
+.opt input { accent-color: var(--purple); margin: 0; }
+
+textarea#channels {
+  width: 100%;
+  margin-top: 7px;
+  padding: 7px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #0d1017;
+  color: var(--ink);
+  font: 12px/1.5 "IBM Plex Mono", ui-monospace, Consolas, monospace;
+  resize: vertical;
+}
+textarea#channels:disabled { opacity: 0.4; }
+
+.hint {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--ink-dim);
+  min-height: 14px;
+}
+.hint.is-saved { color: #7ef0a6; }

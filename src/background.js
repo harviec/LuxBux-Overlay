@@ -9,6 +9,9 @@ const BALANCE_URL = "https://luxthos.io/luxbux/api/me/balance";
 const LUX_ORIGIN = "https://luxthos.io/*";
 const ALARM = "luxbux-poll";
 
+// Which channels the overlay shows on, until the popup changes it.
+const DEFAULT_SETTINGS = { showAll: false, channels: ["luxthos", "luxthoshobbies"] };
+
 // The open Twitch tab drives the fast 15s cadence (see overlay.js); this alarm
 // is only a slow backstop for when a tab is open but long-hidden/throttled.
 const POLL_MINUTES = 1;
@@ -66,8 +69,10 @@ function ensureAlarm() {
   chrome.alarms.create(ALARM, { periodInMinutes: POLL_MINUTES });
 }
 
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener(async () => {
   ensureAlarm();
+  const { settings } = await chrome.storage.local.get("settings");
+  if (!settings) await chrome.storage.local.set({ settings: DEFAULT_SETTINGS });
   poll();
 });
 
@@ -90,16 +95,4 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     poll().then(() => sendResponse(true));
     return true;
   }
-});
-
-// Toolbar-icon click = grant host access if we still need it (Firefox), then refresh.
-chrome.action.onClicked.addListener(async () => {
-  if (!(await hasHostAccess())) {
-    try {
-      await chrome.permissions.request({ origins: [LUX_ORIGIN] });
-    } catch (e) {
-      // Chrome won't request a manifest host permission (already granted); ignore.
-    }
-  }
-  poll();
 });
