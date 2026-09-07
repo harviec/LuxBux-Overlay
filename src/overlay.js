@@ -145,8 +145,13 @@
   }
 
   // ---- position: pinned to the player (default) or the window ------------
+  // pos anchors one corner of the box to a *fraction* of the host rect, so the
+  // box holds the same relative spot on the video whether it's normal, theater
+  // or fullscreen size — not a fixed pixel inset that drifts as the player grows.
+  //   { cx: "l"|"r", cy: "t"|"b", ax: 0..1, ay: 0..1 }
+  const DEFAULT_INSET = 0.015;
   let drag = null;
-  let pos = null; // { hEdge, h, vEdge, v } — insets from a corner of hostRect()
+  let pos = null;
 
   const anchorsToPlayer = () => !settings || settings.anchor !== "window";
   const growsLeft = () => !settings || settings.grow !== "right";
@@ -177,19 +182,53 @@
     return { left: 0, top: 0, right: innerWidth, bottom: innerHeight, width: innerWidth, height: innerHeight };
   }
 
+  function defaultPos() {
+    return growsLeft()
+      ? { cx: "r", ax: 1 - DEFAULT_INSET, cy: "t", ay: DEFAULT_INSET * 2 }
+      : { cx: "l", ax: DEFAULT_INSET, cy: "t", ay: DEFAULT_INSET * 2 };
+  }
+
+  // Older builds stored pixel insets; fold those into the fractional model once,
+  // measured against whatever host we have now (close enough — a drag re-pins it).
+  function normalisePos(host) {
+    if (!pos) return;
+    if (typeof pos.ax === "number" && typeof pos.ay === "number" && pos.cx && pos.cy) return;
+    const W = host.width || innerWidth;
+    const H = host.height || innerHeight;
+    let cx = "l";
+    let cy = "t";
+    let axPx = 12;
+    let ayPx = 12;
+    if (pos.hEdge === "right") { cx = "r"; axPx = pos.h != null ? pos.h : 12; }
+    else if (pos.hEdge === "left") { cx = "l"; axPx = pos.h != null ? pos.h : 12; }
+    else if (pos.left != null) { cx = "l"; axPx = parseInt(pos.left, 10) || 12; }
+    if (pos.vEdge === "bottom") { cy = "b"; ayPx = pos.v != null ? pos.v : 12; }
+    else { cy = "t"; ayPx = pos.v != null ? pos.v : parseInt(pos.top, 10) || 12; }
+    pos = {
+      cx,
+      cy,
+      ax: cx === "l" ? clamp(axPx / W, 0, 1) : clamp(1 - axPx / W, 0, 1),
+      ay: cy === "t" ? clamp(ayPx / H, 0, 1) : clamp(1 - ayPx / H, 0, 1),
+    };
+    ext.storage.local.set({ pos });
+  }
+
   function reposition() {
     if (drag || box.hidden) return;
     const host = hostRect();
+    normalisePos(host);
     const w = box.offsetWidth || 90;
     const h = box.offsetHeight || 40;
-    const p = pos || { hEdge: growsLeft() ? "right" : "left", h: 12, vEdge: "top", v: 12 };
+    const p = pos || defaultPos();
 
-    let left = p.hEdge === "left" ? host.left + p.h : host.right - p.h - w;
-    let top = p.vEdge === "top" ? host.top + p.v : host.bottom - p.v - h;
+    const anchorX = host.left + clamp(p.ax, 0, 1) * host.width;
+    const anchorY = host.top + clamp(p.ay, 0, 1) * host.height;
+    const left = p.cx === "l" ? anchorX : anchorX - w;
+    const top = p.cy === "t" ? anchorY : anchorY - h;
 
-    // Vertical/horizontal travel is bounded by the host AND the viewport, so the
-    // box rides the visible part of the player as it scrolls under Twitch's
-    // chrome, then tucks away once the player is basically gone.
+    // Travel is bounded by the host AND the viewport, so the box rides the
+    // visible part of the player as it scrolls under Twitch's chrome, then
+    // tucks away once the player is basically gone.
     const loL = Math.max(2, host.left + 2);
     const hiL = Math.min(innerWidth - w - 2, host.right - w - 2);
     const loT = Math.max(2, host.top + 2);
@@ -205,38 +244,28 @@
     box.style.bottom = "auto";
   }
 
-  // Turn the box's current on-screen rect into corner insets and remember them.
+  // Store where the box sits as a fraction of the host, anchored to the corner
+  // it grows away from vertically/horizontally.
   function savePos() {
     const b = box.getBoundingClientRect();
     const host = hostRect();
-    const hEdge = growsLeft() ? "right" : "left";
-    const vEdge = b.top + b.height / 2 < host.top + host.height / 2 ? "top" : "bottom";
+    if (!host.width || !host.height) return;
+    const cx = growsLeft() ? "r" : "l";
+    const cy = b.top + b.height / 2 < host.top + host.height / 2 ? "t" : "b";
+    const px = cx === "l" ? b.left : b.right;
+    const py = cy === "t" ? b.top : b.bottom;
     pos = {
-      hEdge,
-      vEdge,
-      h: Math.round(hEdge === "left" ? b.left - host.left : host.right - b.right),
-      v: Math.round(vEdge === "top" ? b.top - host.top : host.bottom - b.bottom),
+      cx,
+      cy,
+      ax: clamp((px - host.left) / host.width, 0, 1),
+      ay: clamp((py - host.top) / host.height, 0, 1),
     };
     ext.storage.local.set({ pos });
     reposition();
   }
 
   function loadPos(saved) {
-    if (!saved) return (pos = null);
-    if (saved.hEdge && saved.vEdge) return (pos = saved);
-    // migrate earlier shapes: {hEdge,h,top} then {left,top}
-    if (saved.hEdge) {
-      return (pos = { hEdge: saved.hEdge, h: saved.h, vEdge: "top", v: parseInt(saved.top, 10) || 12 });
-    }
-    if (saved.left != null) {
-      return (pos = {
-        hEdge: "left",
-        h: parseInt(saved.left, 10) || 12,
-        vEdge: "top",
-        v: parseInt(saved.top, 10) || 12,
-      });
-    }
-    pos = null;
+    pos = saved || null; // normalised lazily on first reposition()
   }
 
   let rafPending = 0;

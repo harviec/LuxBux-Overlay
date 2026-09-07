@@ -13,9 +13,10 @@ One shared codebase for **Chrome**, **Edge**, and **Firefox** (142+).
   cadence the site's page uses — with a "+N" pop when you earn.
 - Shows **only on the channels you pick** (default: `luxthos`,
   `luxthoshobbies`), or everywhere. Editable from the toolbar popup.
-- By default it's **pinned to a corner of the video player** and tracks it
-  through page scroll, theater mode and fullscreen. Can be switched to
-  window-pinned in the popup.
+- By default it's **pinned to the video player** and tracks it through page
+  scroll, theater mode and fullscreen. Its spot is stored as a fraction of the
+  player, so it holds the same position relative to the video at every size
+  rather than drifting. Can be switched to window-pinned in the popup.
 - Drag it anywhere; the spot is remembered across reloads. It stays pinned to
   a corner and grows inward as the number gains digits, so it never slides off
   screen. Grow direction is a setting.
@@ -34,8 +35,8 @@ One shared codebase for **Chrome**, **Edge**, and **Firefox** (142+).
 - `src/overlay.js` runs on `*://*.twitch.tv/*`, draws the chip, and reads the
   stored balance. It parses the channel from the URL (handling `/moderator/…`,
   `/popout/…`, and `player.twitch.tv`) and follows Twitch's in-page navigation,
-  so the chip shows/hides on channel changes without a reload. Position is
-  recomputed against the player's bounding box on scroll / resize / a
+  so the chip shows/hides on channel changes without a reload. Position is a
+  fraction of the player's bounding box, recomputed on scroll / resize / a
   `ResizeObserver` (theater mode) / `fullscreenchange` — where the chip is also
   moved into the fullscreen element so it stays visible.
 - `src/popup.html` is the toolbar popup: balance readout, a refresh button, the
