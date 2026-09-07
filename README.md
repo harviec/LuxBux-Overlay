@@ -1,38 +1,45 @@
 # LuxBux Overlay
 
-A tiny browser extension that floats your **LuxBux** balance (from
-`luxthos.io/luxbux/`) on top of Twitch. Only *you* see it — it's painted in your
-own browser, not composited into anyone's stream.
+A small browser extension that floats your **LuxBux** balance (from
+[luxthos.io/luxbux/](https://luxthos.io/luxbux/)) on top of Twitch. Only *you*
+see it — it's drawn in your own browser, not composited into anyone's stream.
 
-Works on **Chrome**, **Edge**, and **Firefox** from one shared codebase.
+One shared codebase for **Chrome**, **Edge**, and **Firefox** (142+).
+
+## Features
+
+- Compact gold balance chip, styled after luxthos.io's own card.
+- Refreshes every **15 s** while a Twitch tab is open and visible — the same
+  cadence the site's page uses — with a "+N" pop when you earn.
+- Shows **only on the channels you pick** (default: `luxthos`,
+  `luxthoshobbies`), or everywhere. Editable from the toolbar popup.
+- Drag it anywhere; the spot is remembered across reloads. It stays pinned to
+  an edge and grows inward as the number gains digits, so it never slides off
+  screen. Grow direction is a setting.
+- The **toolbar icon is a status light** (green / yellow / red / gray).
 
 ## How it works
 
-- `luxthos.io` serves the balance from a small JSON endpoint,
+- luxthos.io serves the balance from a small JSON endpoint,
   `GET /luxbux/api/me/balance` → `{ "balance": 100 }`, authenticated by your
   normal luxthos.io login cookie.
-- While a Twitch tab is open and visible, the overlay refreshes every **15s** —
-  the same cadence luxthos.io's own page uses. `src/background.js` does the
-  actual fetch (from the extension, so your luxthos.io session cookie is sent as
-  a first-party request — no scraping, no separate login) and a 1-minute alarm
-  is a slow fallback for a long-hidden tab.
-- `src/overlay.js` draws the box on `twitch.tv` and updates it whenever the
-  stored balance changes. Drag it anywhere (position is remembered); single-click
-  it to refresh immediately.
-- The box only appears on the channels you choose (see below); on every other
-  channel it stays hidden and the extension does nothing. Twitch's in-page
-  navigation is handled, so switching channels shows/hides it without a reload.
-- Drag it anywhere — the spot is remembered across reloads. It's pinned to the
-  near edge, so as the number gains digits it grows toward screen centre and
-  never slides off. The **grow direction** (which edge it stays pinned to) is a
-  popup setting; the "+N" earn popup follows it.
-- Box states: a number (normal), **"log in"** (not logged into luxthos.io in this
-  browser — visit the site, log in, then click the box), **"enable"** (Firefox
-  only — open the toolbar popup and grant luxthos.io access).
+- `src/background.js` (a service worker on Chrome/Edge, an event page on
+  Firefox) does the fetch. Because the request comes from the extension your
+  luxthos.io session cookie is sent as a first-party request — no scraping, no
+  separate login. Requests from multiple tabs / clicks are debounced; a
+  1-minute alarm is a slow fallback for a long-hidden tab.
+- `src/overlay.js` runs on `*://*.twitch.tv/*`, draws the chip, and reads the
+  stored balance. It parses the channel from the URL (handling `/moderator/…`,
+  `/popout/…`, and `player.twitch.tv`) and follows Twitch's in-page navigation,
+  so the chip shows/hides on channel changes without a reload.
+- `src/popup.html` is the toolbar popup: balance readout, a refresh button, the
+  channel list, and the grow-direction choice. Settings live in
+  `chrome.storage.local` and autosave.
+
+Nothing leaves your browser except the request to luxthos.io. No analytics, no
+other hosts (the display font is the only optional external load — see Notes).
 
 ## Toolbar icon colour
-
-The extension icon is a status light:
 
 | Colour | Meaning |
 | --- | --- |
@@ -41,109 +48,109 @@ The extension icon is a status light:
 | 🔴 red | On Twitch, but logged out of luxthos.io or a fetch is failing |
 | ⚪ gray | Not on a Twitch page |
 
-It's per-tab, so switching tabs updates it.
+It's per-tab, so switching tabs updates it. The chip itself also shows
+**"log in"** or **"enable"** when something needs your attention.
 
-## Choosing which channels
+## The popup
 
-Click the extension's toolbar icon for a small popup (in **Firefox** a
-just-loaded add-on's icon often sits in the » overflow / extensions menu — pin
-it, or reach the same screen via `about:addons` → LuxBux Overlay → **Options**):
+Click the toolbar icon. In **Firefox** a just-loaded add-on's icon often sits in
+the `»` overflow / extensions menu — pin it, or open the same screen via
+`about:addons` → LuxBux Overlay → **Options**.
 
-- **These channels** — a text box, one channel per line. Defaults to `luxthos`
-  and `luxthoshobbies`. Paste a name, an `@name`, or a full `twitch.tv/...` URL;
-  it's normalised on save.
-- **All Twitch channels** — show the overlay everywhere on Twitch.
-- **Grow direction** — as the balance gets more digits, expand ← left (stay
-  pinned to the right) or right → (stay pinned to the left).
+- **Show the overlay on** — *These channels* (one per line; accepts a name,
+  `@name`, or a full `twitch.tv/…` URL, normalised on save) or *All Twitch
+  channels*.
+- **When the number gets longer, grow** — *← Left* (stay pinned to the right)
+  or *Right →* (stay pinned to the left). The "+N" pop follows it.
 
-Changes save automatically and take effect on open Twitch tabs immediately.
+Changes save automatically and apply to open Twitch tabs immediately.
 
 ## Layout
 
 ```
-src/                     shared code
-  background.js           fetches the balance, debounces, drives the icon
-  overlay.js              draws the box, channel gating, SPA nav watch
-  overlay.css             box styling
-  popup.html/.js/.css     toolbar popup — balance + channel list editor
+src/                     shared, unbundled extension code
+  background.js           fetch + debounce + poll alarm + toolbar icon
+  overlay.js              the chip: channel gating, drag/position, SPA nav
+  overlay.css             chip styling
+  popup.html/.js/.css     toolbar popup / options page
   icons/                  generated status discs (gold/gray/green/yellow/red)
 manifests/
-  manifest.chrome.json   Chrome + Edge (MV3 service worker)
-  manifest.firefox.json  Firefox 142+ (MV3 event page + gecko id)
-tools/make-icons.mjs     regenerates src/icons/ (pure Node)
-build.ps1 / build.sh     assembles dist/chrome + dist/firefox (+ zips)
+  manifest.chrome.json    Chrome + Edge (MV3 service worker)
+  manifest.firefox.json   Firefox 142+ (MV3 event page, gecko id, data-consent)
+tools/make-icons.mjs      regenerates src/icons/ (pure Node, no deps)
+build.ps1 / build.sh      assemble dist/chrome + dist/firefox (+ zips)
 ```
+
+`src/` is loadable as-is during development; `background.js` / `overlay.js` /
+`popup.js` all start from `const ext = globalThis.browser || globalThis.chrome`
+so the same code gets promise-based APIs on every browser.
 
 ## Build
 
-```powershell
+```bash
 ./build.ps1
 ```
 
-(or `./build.sh` on a POSIX shell). Produces:
+(or `./build.sh` on a POSIX shell) — writes:
 
 ```
-dist/chrome/    dist/firefox/          <- load-unpacked folders
+dist/chrome/    dist/firefox/            load-unpacked folders
 dist/luxbux-overlay-chrome.zip
 dist/luxbux-overlay-firefox.zip
 ```
 
-For quick dev you can also just load `manifests/manifest.chrome.json`'s folder by
-hand, but the build script keeps the two manifests in sync with `src/`.
+Each folder is `src/` plus the right `manifest.json`. `dist/` is git-ignored.
 
 ## Install — Chrome / Edge
 
 1. `./build.ps1`
-2. Chrome: `chrome://extensions` · Edge: `edge://extensions`
-3. Turn on **Developer mode**.
-4. **Load unpacked** → select `dist/chrome`.
-5. Open/reload `twitch.tv/luxthos`. The gold box appears top-right.
+2. Open `chrome://extensions` (or `edge://extensions`) and turn on
+   **Developer mode**.
+3. **Load unpacked** → select `dist/chrome`.
+4. Open or reload `twitch.tv/luxthos`.
 
 Be logged into `luxthos.io` in the same browser profile. Pin the extension icon
-to reach the channel-list popup.
+to reach the popup.
 
 ## Install — Firefox
 
-**Temporary (simplest, gone on restart):**
+**Temporary** (simplest; removed on restart):
 
 1. `./build.ps1`
-2. Go to `about:debugging#/runtime/this-firefox`.
-3. **Load Temporary Add-on…** → pick `dist/firefox/manifest.json`.
-4. If the box shows **"enable"**, open the toolbar popup and click
+2. `about:debugging#/runtime/this-firefox` → **Load Temporary Add-on…** → pick
+   `dist/firefox/manifest.json`.
+3. If the chip shows **"enable"**, open the popup and click
    **Grant luxthos.io access**.
 
-**Permanent, regular Firefox** (needs a signed build — Mozilla requires it):
+**Permanent** (regular Firefox requires a signed build):
 
-1. Make a free account at <https://addons.mozilla.org>.
-2. Submit `dist/luxbux-overlay-firefox.zip` as an **unlisted** add-on (it's only
-   for you; it won't appear in the store). Mozilla auto-signs it.
-3. Download the signed `.xpi`, then in `about:addons` use the gear →
+1. Free account at <https://addons.mozilla.org>.
+2. Submit `dist/luxbux-overlay-firefox.zip` as an **unlisted** add-on — it stays
+   private and Mozilla auto-signs it.
+3. Download the signed `.xpi` → `about:addons` → gear →
    **Install Add-on From File…**.
 
-Alternatively `npx web-ext sign --channel unlisted` does the same from the
-command line, or use Firefox **Developer Edition / Nightly / ESR** with
-`about:config` → `xpinstall.signatures.required` = `false` and install the zip
-directly.
+`npx web-ext sign --channel unlisted` does the same from the command line.
+Firefox **Developer Edition / Nightly** can skip signing with
+`about:config` → `xpinstall.signatures.required` = `false`.
+
+Lint a build with `npx web-ext lint --source-dir dist/firefox`.
 
 ## Tweaks
 
-- **Size / colours:** `src/overlay.css` — `.luxbux-value` `font-size` is the main
-  dial (currently `21px`; the site uses `40px`).
-- **Default corner:** `#luxbux-overlay` `top` / `right` in `src/overlay.css`
-  (applies until you first drag it). Grow direction: the popup, or the `grow`
-  default in `DEFAULTS` / `DEFAULT_SETTINGS`.
-- **Poll rate:** `REFRESH_MS` in `src/overlay.js` (default `15000`). The
-  `MIN_GAP_MS` debounce in `src/background.js` should stay below that.
-- **Which channels:** the toolbar popup. The baked-in default is in
-  `DEFAULT_SETTINGS` (`src/background.js`) and `DEFAULTS` (`src/overlay.js`).
-- **Beyond Twitch:** the `matches` array in both manifests. Use `"<all_urls>"`
-  to run it on every site (channel gating still applies unless "all" is picked).
-- **Icon colours:** `ICONS` / `TITLES` / `colorFor()` in `src/background.js`;
-  regenerate the discs with `node tools/make-icons.mjs` after editing `COLORS`.
+| Want to change | Where |
+| --- | --- |
+| Chip size | `.luxbux-value` `font-size` in `src/overlay.css` (`21px`; site uses `40px`) |
+| Starting corner | `#luxbux-overlay` `top` / `right` in `src/overlay.css` (until first drag) |
+| Refresh rate | `REFRESH_MS` in `src/overlay.js` (`15000`); keep it above `MIN_GAP_MS` in `src/background.js` |
+| Default channels / grow | `DEFAULTS` in `src/overlay.js` and `DEFAULT_SETTINGS` in `src/background.js` |
+| Run beyond Twitch | `matches` in both manifests (`"<all_urls>"` — channel gating still applies unless "all" is picked) |
+| Icon colours | `COLORS` in `tools/make-icons.mjs`, then rerun it; `ICONS` / `TITLES` / `colorFor()` in `src/background.js` |
 
 ## Notes
 
-- This only reads your own balance through the same API the site's own page
+- This reads only your own balance, through the same API the site's own page
   uses. It doesn't touch anyone else's stream or data.
-- The Space Grotesk font is loaded from Google Fonts to match the site; if a
-  browser's content policy blocks it, the box falls back to the system font.
+- Space Grotesk is loaded from Google Fonts to match the site; if a browser's
+  content policy blocks it, the chip falls back to the system font.
+- Not affiliated with Luxthos. Personal tool, not published to any store.
