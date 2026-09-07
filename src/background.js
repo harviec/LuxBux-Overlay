@@ -15,6 +15,7 @@ const DEFAULT_SETTINGS = {
   showAll: false,
   channels: ["luxthos", "luxthoshobbies"],
   grow: "left", // direction the box expands as the number gets longer
+  anchor: "player", // "player" tracks the video; "window" pins to the viewport
 };
 
 // The open Twitch tab drives the fast 15s cadence (see overlay.js); this alarm

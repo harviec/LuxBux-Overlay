@@ -13,8 +13,11 @@ One shared codebase for **Chrome**, **Edge**, and **Firefox** (142+).
   cadence the site's page uses — with a "+N" pop when you earn.
 - Shows **only on the channels you pick** (default: `luxthos`,
   `luxthoshobbies`), or everywhere. Editable from the toolbar popup.
+- By default it's **pinned to a corner of the video player** and tracks it
+  through page scroll, theater mode and fullscreen. Can be switched to
+  window-pinned in the popup.
 - Drag it anywhere; the spot is remembered across reloads. It stays pinned to
-  an edge and grows inward as the number gains digits, so it never slides off
+  a corner and grows inward as the number gains digits, so it never slides off
   screen. Grow direction is a setting.
 - The **toolbar icon is a status light** (green / yellow / red / gray).
 
@@ -31,7 +34,10 @@ One shared codebase for **Chrome**, **Edge**, and **Firefox** (142+).
 - `src/overlay.js` runs on `*://*.twitch.tv/*`, draws the chip, and reads the
   stored balance. It parses the channel from the URL (handling `/moderator/…`,
   `/popout/…`, and `player.twitch.tv`) and follows Twitch's in-page navigation,
-  so the chip shows/hides on channel changes without a reload.
+  so the chip shows/hides on channel changes without a reload. Position is
+  recomputed against the player's bounding box on scroll / resize / a
+  `ResizeObserver` (theater mode) / `fullscreenchange` — where the chip is also
+  moved into the fullscreen element so it stays visible.
 - `src/popup.html` is the toolbar popup: balance readout, a refresh button, the
   channel list, and the grow-direction choice. Settings live in
   `chrome.storage.local` and autosave.
@@ -60,6 +66,8 @@ the `»` overflow / extensions menu — pin it, or open the same screen via
 - **Show the overlay on** — *These channels* (one per line; accepts a name,
   `@name`, or a full `twitch.tv/…` URL, normalised on save) or *All Twitch
   channels*.
+- **Pin the overlay to** — *The video player* (tracks it through theater and
+  fullscreen) or *The browser window* (fixed on screen).
 - **When the number gets longer, grow** — *← Left* (stay pinned to the right)
   or *Right →* (stay pinned to the left). The "+N" pop follows it.
 
@@ -70,7 +78,7 @@ Changes save automatically and apply to open Twitch tabs immediately.
 ```
 src/                     shared, unbundled extension code
   background.js           fetch + debounce + poll alarm + toolbar icon
-  overlay.js              the chip: channel gating, drag/position, SPA nav
+  overlay.js              the chip: channel gating, player/window anchoring, SPA nav
   overlay.css             chip styling
   popup.html/.js/.css     toolbar popup / options page
   icons/                  generated status discs (gold/gray/green/yellow/red)
@@ -143,7 +151,8 @@ Lint a build with `npx web-ext lint --source-dir dist/firefox`.
 | Chip size | `.luxbux-value` `font-size` in `src/overlay.css` (`21px`; site uses `40px`) |
 | Starting corner | `#luxbux-overlay` `top` / `right` in `src/overlay.css` (until first drag) |
 | Refresh rate | `REFRESH_MS` in `src/overlay.js` (`15000`); keep it above `MIN_GAP_MS` in `src/background.js` |
-| Default channels / grow | `DEFAULTS` in `src/overlay.js` and `DEFAULT_SETTINGS` in `src/background.js` |
+| Default channels / grow / anchor | `DEFAULTS` in `src/overlay.js` and `DEFAULT_SETTINGS` in `src/background.js` |
+| Player detection (if Twitch renames classes) | `PLAYER_SELECTORS` in `src/overlay.js` |
 | Run beyond Twitch | `matches` in both manifests (`"<all_urls>"` — channel gating still applies unless "all" is picked) |
 | Icon colours | `COLORS` in `tools/make-icons.mjs`, then rerun it; `ICONS` / `TITLES` / `colorFor()` in `src/background.js` |
 
@@ -151,6 +160,10 @@ Lint a build with `npx web-ext lint --source-dir dist/firefox`.
 
 - This reads only your own balance, through the same API the site's own page
   uses. It doesn't touch anyone else's stream or data.
+- Player-pinned: as you scroll and the player slides under Twitch's header the
+  chip rides the visible edge, then hides once the player is essentially gone —
+  it reappears when you scroll back. Switch to window-pinned if you'd rather it
+  always stay put.
 - Space Grotesk is loaded from Google Fonts to match the site; if a browser's
   content policy blocks it, the chip falls back to the system font.
 - Not affiliated with Luxthos. Personal tool, not published to any store.
