@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "LuxBux Overlay",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "Floats your luxthos.io LuxBux balance over Twitch. Only you see it.",
   "browser_specific_settings": {
     "gecko": {

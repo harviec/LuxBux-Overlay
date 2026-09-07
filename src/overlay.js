@@ -332,7 +332,10 @@
 
   ext.storage.onChanged.addListener((changes, area) => {
     if (area !== "local") return;
-    if (changes.state) render(changes.state.newValue);
+    if (changes.state) {
+      render(changes.state.newValue);
+      if (!document.hidden) ping(); // nudge the background to recolour this tab's icon
+    }
     if (changes.settings) {
       const before = { grow: growsLeft(), player: anchorsToPlayer() };
       settings = { ...DEFAULTS, ...changes.settings.newValue };
