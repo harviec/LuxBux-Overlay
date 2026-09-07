@@ -11,9 +11,11 @@ Works on **Chrome**, **Edge**, and **Firefox** from one shared codebase.
 - `luxthos.io` serves the balance from a small JSON endpoint,
   `GET /luxbux/api/me/balance` → `{ "balance": 100 }`, authenticated by your
   normal luxthos.io login cookie.
-- `src/background.js` (the extension's background worker) fetches that endpoint
-  every ~60s. The request is made from the extension, so your luxthos.io session
-  cookie is sent as a first-party request — no scraping, no separate login.
+- While a Twitch tab is open and visible, the overlay refreshes every **15s** —
+  the same cadence luxthos.io's own page uses. `src/background.js` does the
+  actual fetch (from the extension, so your luxthos.io session cookie is sent as
+  a first-party request — no scraping, no separate login) and a 1-minute alarm
+  is a slow fallback for a long-hidden tab.
 - `src/overlay.js` draws the box on `twitch.tv` and updates it whenever the
   stored balance changes. Drag it anywhere (position is remembered); single-click
   it to refresh immediately.
@@ -86,8 +88,8 @@ directly.
 - **Size / colours:** `src/overlay.css` — `.luxbux-value` `font-size` is the main
   dial (currently `21px`; the site uses `40px`).
 - **Default corner:** `#luxbux-overlay` `top` / `right` in `src/overlay.css`.
-- **Poll rate:** `POLL_MINUTES` in `src/background.js` (browser alarm minimum is
-  ~1 min; focus/click refreshes fill the gaps).
+- **Poll rate:** `REFRESH_MS` in `src/overlay.js` (default `15000`). The
+  `MIN_GAP_MS` debounce in `src/background.js` should stay below that.
 - **Where it shows:** the `matches` array in both manifests. Use `"<all_urls>"`
   to float it on every site.
 

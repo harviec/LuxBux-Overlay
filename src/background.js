@@ -8,7 +8,15 @@
 const BALANCE_URL = "https://luxthos.io/luxbux/api/me/balance";
 const LUX_ORIGIN = "https://luxthos.io/*";
 const ALARM = "luxbux-poll";
+
+// The open Twitch tab drives the fast 15s cadence (see overlay.js); this alarm
+// is only a slow backstop for when a tab is open but long-hidden/throttled.
 const POLL_MINUTES = 1;
+
+// Collapse near-simultaneous refresh requests (multiple tabs, a click landing
+// right after a tick) into one fetch. A forced request skips this.
+const MIN_GAP_MS = 8000;
+let lastPollAt = 0;
 
 async function setState(patch) {
   const { state = {} } = await chrome.storage.local.get("state");
@@ -26,6 +34,7 @@ async function hasHostAccess() {
 }
 
 async function poll() {
+  lastPollAt = Date.now();
   if (!(await hasHostAccess())) {
     await setState({ status: "needs-permission" });
     return;
@@ -71,9 +80,13 @@ chrome.alarms.onAlarm.addListener((a) => {
   if (a.name === ALARM) poll();
 });
 
-// The overlay asks for a fresh pull when a Twitch tab regains focus or is clicked.
+// The overlay pings every 15s while its tab is visible, on focus, and on click.
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
-  if (msg === "luxbux:refresh") {
+  if (msg && msg.t === "refresh") {
+    if (!msg.force && Date.now() - lastPollAt < MIN_GAP_MS) {
+      sendResponse(false);
+      return;
+    }
     poll().then(() => sendResponse(true));
     return true;
   }

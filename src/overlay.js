@@ -6,6 +6,10 @@
   if (window.__luxbuxOverlay) return;
   window.__luxbuxOverlay = true;
 
+  const REFRESH_MS = 15000; // same cadence luxthos.io's own page uses
+
+  const ask = (force) => chrome.runtime.sendMessage({ t: "refresh", force: !!force });
+
   // Best-effort: match the site's display font. If Twitch's CSP blocks this,
   // it silently falls back to the system stack in overlay.css.
   if (!document.getElementById("luxbux-font")) {
@@ -107,12 +111,21 @@
     if (drag.moved) {
       chrome.storage.local.set({ pos: { left: box.style.left, top: box.style.top } });
     } else {
-      chrome.runtime.sendMessage("luxbux:refresh");
+      ask(true); // manual click: refresh now, skip the debounce
     }
     drag = null;
   });
 
+  // ---- keep it live -------------------------------------------------------
+  // Poll every 15s while this tab is visible; pause when it's hidden (the
+  // background alarm is the slow fallback for that case).
+  setInterval(() => {
+    if (!document.hidden) ask();
+  }, REFRESH_MS);
+
   document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) chrome.runtime.sendMessage("luxbux:refresh");
+    if (!document.hidden) ask();
   });
+
+  ask(); // first pull on load
 })();
