@@ -15,6 +15,7 @@
 const ext = globalThis.browser || globalThis.chrome;
 
 const BALANCE_URL = "https://luxthos.io/luxbux/api/me/balance";
+const GAME_URL = "https://luxthos.io/game/api/play";
 const LUX_ORIGIN = "https://luxthos.io/*";
 
 // Which channels the overlay shows on, until the popup changes it.
@@ -29,6 +30,20 @@ const DEFAULT_SETTINGS = {
 // right after a tick) into one fetch. A forced request skips this.
 const MIN_GAP_MS = 8000;
 let lastPollAt = 0;
+
+// The game-state endpoint is heavier and dungeon runs last hours, so poll it
+// far less often than the balance.
+const GAME_MIN_GAP_MS = 60000;
+let lastGamePollAt = 0;
+
+const ROMAN = ["I", "II", "III", "IV", "V"];
+function tsToMs(s) {
+  if (!s) return null;
+  const str = String(s);
+  const iso = /[zZ]$|[+\-]\d\d:?\d\d$/.test(str) ? str.replace(" ", "T") : str.replace(" ", "T") + "Z";
+  const n = Date.parse(iso);
+  return Number.isNaN(n) ? null : n;
+}
 
 // ---- toolbar icon --------------------------------------------------------
 // green  = on an allowed channel, connected, stream live (polling)
@@ -159,6 +174,36 @@ async function poll() {
   }
 }
 
+// GET /game/api/play -> full game state. We keep only what the chip needs:
+// whether a dungeon run or a post-death recovery is in progress, and when it ends.
+async function pollGame() {
+  lastGamePollAt = Date.now();
+  if (!(await hasHostAccess())) return;
+  try {
+    const res = await fetch(GAME_URL, { credentials: "include", cache: "no-store" });
+    if (!res.ok) return setState({ game: { off: true } });
+    const d = await res.json();
+    if (!d || d.error) return setState({ game: { off: true } });
+
+    const game = {};
+    const run = d.run;
+    if (run && run.tier != null) {
+      const dg = (d.dungeons || []).find(
+        (x) => run.tier >= x.fromTier && run.tier <= x.fromTier + ROMAN.length - 1
+      );
+      const numeral = dg ? ROMAN[run.tier - dg.fromTier] : "";
+      game.dungeon = dg ? (dg.name + (numeral ? " " + numeral : "")) : "a dungeon";
+      game.endsAt = tsToMs(run.endsAt);
+    }
+    const lockedUntil = tsToMs(d.lockedUntil);
+    if (lockedUntil && lockedUntil > Date.now()) game.lockedUntil = lockedUntil;
+
+    return setState({ game });
+  } catch (e) {
+    /* transient — the next poll tries again; leave the last game state in place */
+  }
+}
+
 // ---- wiring ----------------------------------------------------------
 ext.runtime.onInstalled.addListener(async () => {
   const { settings } = await ext.storage.local.get("settings");
@@ -184,6 +229,15 @@ ext.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.t === "refresh") {
     if (msg.force || Date.now() - lastPollAt >= MIN_GAP_MS) {
       poll().finally(() => sendResponse(true));
+      return true;
+    }
+    sendResponse(false);
+    return;
+  }
+
+  if (msg.t === "refreshGame") {
+    if (Date.now() - lastGamePollAt >= GAME_MIN_GAP_MS) {
+      pollGame().finally(() => sendResponse(true));
       return true;
     }
     sendResponse(false);

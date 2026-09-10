@@ -33,6 +33,45 @@
   text-transform: uppercase;
   color: #ffc93c;
   opacity: 0.9;
+  white-space: nowrap;
+}
+
+/* Cross-fade the label + number when the chip flips between LuxBux and the
+   dungeon / recovery countdown. */
+#luxbux-overlay .luxbux-label,
+#luxbux-overlay .luxbux-value {
+  transition: opacity 0.16s ease;
+}
+#luxbux-overlay.is-swapping .luxbux-label,
+#luxbux-overlay.is-swapping .luxbux-value {
+  opacity: 0.12;
+}
+
+/* Time view: mm:ss / h:mm:ss reads like a number but needs a touch less size,
+   and the label sheds letter-spacing so "IN DUNGEON" isn't much wider than
+   the balance it replaces. */
+#luxbux-overlay.show-time .luxbux-value {
+  font-size: 16px;
+  color: #f2f4ff;
+  text-shadow: none;
+}
+#luxbux-overlay.show-time .luxbux-label {
+  letter-spacing: 0.6px;
+}
+
+/* Steady accent for the whole time a run / recovery is active, so it's legible
+   even during the LuxBux half of the alternation. */
+#luxbux-overlay.is-dungeon {
+  border-color: rgba(168, 85, 247, 0.5);
+}
+#luxbux-overlay.is-dungeon .luxbux-label {
+  color: #c9a3ff;
+}
+#luxbux-overlay.is-recovering {
+  border-color: rgba(226, 92, 92, 0.55);
+}
+#luxbux-overlay.is-recovering .luxbux-label {
+  color: #f0a0a0;
 }
 
 #luxbux-overlay .luxbux-value-wrap {
@@ -107,5 +146,7 @@
 @media (prefers-reduced-motion: reduce) {
   #luxbux-overlay .luxbux-value.is-bumped,
   #luxbux-overlay.is-earning { animation: none; }
-  #luxbux-overlay .luxbux-delta { transition: none; }
+  #luxbux-overlay .luxbux-delta,
+  #luxbux-overlay .luxbux-label,
+  #luxbux-overlay .luxbux-value { transition: none; }
 }

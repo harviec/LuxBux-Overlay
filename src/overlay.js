@@ -39,6 +39,7 @@
 
   const msg = (m) => Promise.resolve(ext.runtime.sendMessage(m)).catch(() => {});
   const ask = (force) => msg({ t: "refresh", force: !!force });
+  const askGame = () => msg({ t: "refreshGame" }); // dungeon / recovery status
   // Tells the background "a Twitch tab is here" so it colours the toolbar icon
   // and keeps the balance fresh even on non-Luxthos channels.
   const ping = () => msg({ t: "onTwitch", allowed: onAllowed, live: streamLive() });
@@ -67,9 +68,19 @@
     "</div>";
   document.documentElement.appendChild(box);
 
+  const labelEl = box.querySelector(".luxbux-label");
   const valueEl = box.querySelector(".luxbux-value");
   const deltaEl = box.querySelector(".luxbux-delta");
   let shown = null; // last numeric balance we rendered
+
+  // Game state (from /game/api/play, via the background): while a dungeon run or
+  // a post-death recovery is active, the chip alternates every few seconds
+  // between the LuxBux number and the time left.
+  const ALT_MS = 4500;
+  let latest = null; // last full state object
+  let game = null; // latest.game
+  let earnHoldUntil = 0; // pin the balance view briefly after earning
+  let curPhase = 0; // 0 = balance, 1 = time
 
   function replay(el, cls) {
     el.classList.remove(cls);
@@ -77,16 +88,46 @@
     el.classList.add(cls);
   }
 
+  function fmtDur(ms) {
+    const s = Math.max(0, Math.round(ms / 1000));
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    const ss = s % 60;
+    const pad = (n) => String(n).padStart(2, "0");
+    return h ? `${h}:${pad(m)}:${pad(ss)}` : `${m}:${pad(ss)}`;
+  }
+
+  // What the "time" half of the alternation shows right now, or null if neither
+  // a run nor a recovery is in progress.
+  function timeView(now) {
+    if (game && game.lockedUntil && game.lockedUntil > now) {
+      return { label: "Recovering", value: fmtDur(game.lockedUntil - now), mod: "is-recovering" };
+    }
+    if (game && game.endsAt && game.endsAt > now && game.dungeon) {
+      return { label: "In dungeon", value: fmtDur(game.endsAt - now), mod: "is-dungeon" };
+    }
+    return null;
+  }
+
+  // Stash the state and react to earnings; the actual painting is done by tick().
   function render(state) {
     if (!state) return;
+    latest = state;
+    game = state.game || null;
+
     box.classList.toggle("is-problem", state.status !== "ok");
+    if (state.status !== "ok") {
+      box.classList.remove("is-dungeon", "is-recovering", "show-time", "is-swapping");
+    }
 
     if (state.status === "needs-permission") {
+      labelEl.textContent = "LuxBux";
       valueEl.textContent = "enable";
       box.title = "Open the LuxBux toolbar popup and grant luxthos.io access";
       return;
     }
     if (state.status === "logged-out") {
+      labelEl.textContent = "LuxBux";
       valueEl.textContent = "log in";
       box.title = "Open luxthos.io and log in with Twitch, then click here";
       return;
@@ -99,17 +140,54 @@
 
     box.title = "LuxBux · click to refresh";
     const bal = state.balance;
-    valueEl.textContent = bal.toLocaleString("en-US");
 
     if (shown != null && bal > shown) {
       deltaEl.textContent = "+" + (bal - shown).toLocaleString("en-US");
       deltaEl.classList.add("is-shown");
       replay(valueEl, "is-bumped");
       replay(box, "is-earning");
+      earnHoldUntil = Date.now() + 3500; // let the "+N" be seen on the balance view
       setTimeout(() => deltaEl.classList.remove("is-shown"), 3000);
     }
     shown = bal;
+    tick();
   }
+
+  // Runs every second: ticks the countdown and flips balance <-> time.
+  function tick() {
+    if (!latest || latest.status !== "ok") return;
+    const now = Date.now();
+    const tv = timeView(now);
+
+    box.classList.toggle("is-dungeon", !!tv && tv.mod === "is-dungeon");
+    box.classList.toggle("is-recovering", !!tv && tv.mod === "is-recovering");
+
+    const phase = tv && now >= earnHoldUntil ? Math.floor(now / ALT_MS) % 2 : 0;
+
+    if (phase === 1 && tv) {
+      box.classList.add("show-time");
+      if (phase !== curPhase) swap(tv.label, tv.value);
+      else valueEl.textContent = tv.value; // keep the seconds moving
+    } else {
+      box.classList.remove("show-time");
+      const balText = latest.balance.toLocaleString("en-US");
+      if (phase !== curPhase) swap("LuxBux", balText);
+      else valueEl.textContent = balText;
+    }
+    curPhase = phase;
+  }
+
+  // Brief cross-fade when the two views trade places.
+  function swap(label, value) {
+    box.classList.add("is-swapping");
+    setTimeout(() => {
+      labelEl.textContent = label;
+      valueEl.textContent = value;
+      box.classList.remove("is-swapping");
+    }, 160);
+  }
+
+  setInterval(tick, 1000);
 
   // ---- which channel are we on, and is it allowed? ------------------------
   let settings = DEFAULTS;
@@ -151,7 +229,10 @@
     box.hidden = !show;
     box.style.display = show ? "" : "none";
     if (show) {
-      if (!onAllowed && !document.hidden) ask(); // warm the value on arrival
+      if (!onAllowed && !document.hidden) {
+        ask(); // warm the value on arrival
+        askGame(); // ...and the dungeon status
+      }
       scheduleReposition();
     }
     onAllowed = show;
@@ -371,11 +452,20 @@
       const live = streamLive();
       if (live !== wasLive) {
         ping();
-        if (live) ask();
+        if (live) {
+          ask();
+          askGame();
+        }
         wasLive = live;
       }
     }
   }, 1000);
+
+  // Dungeon / recovery status changes slowly (runs last hours) — poll it far less
+  // often than the balance, and only while actually watching a live stream.
+  setInterval(() => {
+    if (onAllowed && streamLive() && !document.hidden) askGame();
+  }, 90000);
 
   // ---- drag to move / click to refresh ---------------------------------
   box.addEventListener("pointerdown", (e) => {
@@ -416,6 +506,9 @@
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) return;
     ping();
-    if (onAllowed) ask(); // one refresh on refocus, live or not
+    if (onAllowed) {
+      ask(); // one refresh on refocus, live or not
+      askGame();
+    }
   });
 })();

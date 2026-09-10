@@ -13,6 +13,10 @@ One shared codebase for **Chrome**, **Edge**, and **Firefox** (142+).
   visible — the same cadence the site's page uses — with a "+N" pop when you
   earn. Stops polling when the stream is offline, the tab is hidden, or no
   Twitch tab is open.
+- **Dungeon status:** while a *Luxbound* run or a post-death recovery is active,
+  the chip alternates every few seconds between the LuxBux number and the time
+  left, and takes on a purple (dungeon) or red (recovering) accent. Polled from
+  `/game/api/play` every ~90 s.
 - Shows **only on the channels you pick** (default: `luxthos`,
   `luxthoshobbies`), or everywhere. Editable from the toolbar popup.
 - By default it's **pinned to the video player** and tracks it through page
@@ -28,7 +32,9 @@ One shared codebase for **Chrome**, **Edge**, and **Firefox** (142+).
 
 - luxthos.io serves the balance from a small JSON endpoint,
   `GET /luxbux/api/me/balance` → `{ "balance": 100 }`, authenticated by your
-  normal luxthos.io login cookie.
+  normal luxthos.io login cookie. `GET /game/api/play` returns the *Luxbound*
+  game state the same way; the background keeps just `run` (→ dungeon name +
+  `endsAt`) and `lockedUntil` (→ recovery time) from it.
 - `src/background.js` (a service worker on Chrome/Edge, an event page on
   Firefox) does the fetch. Because the request comes from the extension your
   luxthos.io session cookie is sent as a first-party request — no scraping, no
@@ -89,8 +95,8 @@ Changes save automatically and apply to open Twitch tabs immediately.
 
 ```
 src/                     shared, unbundled extension code
-  background.js           fetch + debounce + poll alarm + toolbar icon
-  overlay.js              the chip: channel gating, player/window anchoring, SPA nav
+  background.js           balance + game-state fetch, debounce, toolbar icon
+  overlay.js              the chip: channel gating, anchoring, SPA nav, LuxBux/dungeon alternation
   overlay.css             chip styling
   popup.html/.js/.css     toolbar popup / options page
   icons/                  generated status discs (gold/gray/green/blue/yellow/red)
@@ -163,7 +169,10 @@ Lint a build with `npx web-ext lint --source-dir dist/firefox`.
 | Chip size | `.luxbux-value` `font-size` in `src/overlay.css` (`21px`; site uses `40px`) |
 | Starting corner | `#luxbux-overlay` `top` / `right` in `src/overlay.css` (until first drag) |
 | Refresh rate | `REFRESH_MS` in `src/overlay.js` (`15000`); keep it above `MIN_GAP_MS` in `src/background.js` |
+| Dungeon poll rate | the `90000` interval in `src/overlay.js`; floor is `GAME_MIN_GAP_MS` in `src/background.js` |
+| Alternation speed | `ALT_MS` in `src/overlay.js` (`4500` — each of LuxBux / time shows this long) |
 | Live detection | `streamLive()` in `src/overlay.js` (loosen it if Twitch changes the LIVE badge / viewer-count markup) |
+| Game-state parsing | `pollGame()` / `ROMAN` in `src/background.js` (dungeon-name lookup uses `run.tier` + `dungeons[].fromTier`) |
 | Default channels / grow / anchor | `DEFAULTS` in `src/overlay.js` and `DEFAULT_SETTINGS` in `src/background.js` |
 | Player detection (if Twitch renames classes) | `PLAYER_SELECTORS` in `src/overlay.js` |
 | Run beyond Twitch | `matches` in both manifests (`"<all_urls>"` — channel gating still applies unless "all" is picked) |
