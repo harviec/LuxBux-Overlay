@@ -48,15 +48,15 @@
 }
 
 /* Time view: mm:ss / h:mm:ss reads like a number but needs a touch less size,
-   and the label sheds letter-spacing so "IN DUNGEON" isn't much wider than
-   the balance it replaces. */
+   and the label sheds letter-spacing so "DUNGEON" / "RECOVERY" land close to
+   "LUXBUX" in width and the chip barely resizes on the flip. */
 #luxbux-overlay.show-time .luxbux-value {
   font-size: 16px;
   color: #f2f4ff;
   text-shadow: none;
 }
 #luxbux-overlay.show-time .luxbux-label {
-  letter-spacing: 0.6px;
+  letter-spacing: 0.4px;
 }
 
 /* Steady accent for the whole time a run / recovery is active, so it's legible

@@ -98,13 +98,14 @@
   }
 
   // What the "time" half of the alternation shows right now, or null if neither
-  // a run nor a recovery is in progress.
+  // a run nor a recovery is in progress. Labels are kept close in width to
+  // "LuxBux" so the chip barely changes size as it flips.
   function timeView(now) {
     if (game && game.lockedUntil && game.lockedUntil > now) {
-      return { label: "Recovering", value: fmtDur(game.lockedUntil - now), mod: "is-recovering" };
+      return { label: "Recovery", endMs: game.lockedUntil, mod: "is-recovering" };
     }
     if (game && game.endsAt && game.endsAt > now && game.dungeon) {
-      return { label: "In dungeon", value: fmtDur(game.endsAt - now), mod: "is-dungeon" };
+      return { label: "Dungeon", endMs: game.endsAt, mod: "is-dungeon" };
     }
     return null;
   }
@@ -153,6 +154,16 @@
     tick();
   }
 
+  // Set label + value and immediately re-anchor, so a width change from the
+  // swap (or from the countdown losing a digit) never leaves the chip drifting.
+  let swapT = 0;
+  function setDisplay(label, value) {
+    let changed = false;
+    if (labelEl.textContent !== label) (labelEl.textContent = label), (changed = true);
+    if (valueEl.textContent !== value) (valueEl.textContent = value), (changed = true);
+    if (changed) reposition();
+  }
+
   // Runs every second: ticks the countdown and flips balance <-> time.
   function tick() {
     if (!latest || latest.status !== "ok") return;
@@ -163,28 +174,26 @@
     box.classList.toggle("is-recovering", !!tv && tv.mod === "is-recovering");
 
     const phase = tv && now >= earnHoldUntil ? Math.floor(now / ALT_MS) % 2 : 0;
+    box.classList.toggle("show-time", phase === 1 && !!tv);
 
-    if (phase === 1 && tv) {
-      box.classList.add("show-time");
-      if (phase !== curPhase) swap(tv.label, tv.value);
-      else valueEl.textContent = tv.value; // keep the seconds moving
+    const paint = () => {
+      const t = timeView(Date.now());
+      if (phase === 1 && t) setDisplay(t.label, fmtDur(t.endMs - Date.now()));
+      else setDisplay("LuxBux", latest.balance.toLocaleString("en-US"));
+    };
+
+    if (phase !== curPhase) {
+      curPhase = phase;
+      // dip opacity, swap under cover, re-anchor, fade back in
+      box.classList.add("is-swapping");
+      clearTimeout(swapT);
+      swapT = setTimeout(() => {
+        paint();
+        box.classList.remove("is-swapping");
+      }, 150);
     } else {
-      box.classList.remove("show-time");
-      const balText = latest.balance.toLocaleString("en-US");
-      if (phase !== curPhase) swap("LuxBux", balText);
-      else valueEl.textContent = balText;
+      paint();
     }
-    curPhase = phase;
-  }
-
-  // Brief cross-fade when the two views trade places.
-  function swap(label, value) {
-    box.classList.add("is-swapping");
-    setTimeout(() => {
-      labelEl.textContent = label;
-      valueEl.textContent = value;
-      box.classList.remove("is-swapping");
-    }, 160);
   }
 
   setInterval(tick, 1000);
