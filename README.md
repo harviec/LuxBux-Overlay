@@ -29,7 +29,9 @@ One shared codebase for **Chrome**, **Edge**, and **Firefox** (142+).
 - Drag it anywhere; the spot is remembered across reloads. It stays pinned to
   a corner and grows inward as the number gains digits, so it never slides off
   screen. Grow direction is a setting.
-- The **toolbar icon is a status light** (green / yellow / red / gray).
+- The **toolbar icon is a status light** (green = connected + live, blue =
+  connected + stream offline, yellow = connecting, red = not connected,
+  gray = not on Twitch).
 
 ## How it works
 
@@ -113,9 +115,12 @@ tools/make-icons.mjs      regenerates src/icons/ (pure Node, no deps)
 build.ps1 / build.sh      assemble dist/chrome + dist/firefox (+ zips)
 ```
 
-`src/` is loadable as-is during development; `background.js` / `overlay.js` /
-`popup.js` all start from `const ext = globalThis.browser || globalThis.chrome`
-so the same code gets promise-based APIs on every browser.
+The JS/CSS is plain and unbundled — no transpile step. `build.ps1` just copies
+`src/` next to the right `manifest.json`; you load the resulting `dist/chrome`
+or `dist/firefox` folder (loading `src/` directly won't work — the manifests
+live in `manifests/`). `background.js` / `overlay.js` / `popup.js` all start
+from `const ext = globalThis.browser || globalThis.chrome` so the same code
+gets promise-based APIs on every browser.
 
 ## Build
 
