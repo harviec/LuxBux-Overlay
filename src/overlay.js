@@ -73,6 +73,28 @@
   const deltaEl = box.querySelector(".luxbux-delta");
   let shown = null; // last numeric balance we rendered
 
+  // A hidden twin, used only to measure the view that isn't showing so the chip
+  // can hold the width of whichever of "LuxBux N" / "Dungeon mm:ss" is wider and
+  // never resize as it alternates.
+  const ghost = box.cloneNode(true);
+  ghost.classList.add("is-ghost");
+  ghost.hidden = false;
+  ghost.style.display = "flex";
+  const ghostLabel = ghost.querySelector(".luxbux-label");
+  const ghostValue = ghost.querySelector(".luxbux-value");
+  document.documentElement.appendChild(ghost);
+
+  function ghostWidth(isTime, label, value) {
+    const cls = [box.classList.contains("grow-right") ? "grow-right" : "grow-left", "is-ghost"];
+    if (box.classList.contains("is-dungeon")) cls.push("is-dungeon");
+    if (box.classList.contains("is-recovering")) cls.push("is-recovering");
+    if (isTime) cls.push("show-time");
+    ghost.className = cls.join(" ");
+    ghostLabel.textContent = label;
+    ghostValue.textContent = value;
+    return ghost.offsetWidth;
+  }
+
   // Game state (from /game/api/play, via the background): while a dungeon run or
   // a post-death recovery is active, the chip alternates every few seconds
   // between the LuxBux number and the time left.
@@ -81,6 +103,7 @@
   let game = null; // latest.game
   let earnHoldUntil = 0; // pin the balance view briefly after earning
   let curPhase = 0; // 0 = balance, 1 = time
+  let widthKey = ""; // memo so the held width is only remeasured on real change
 
   function replay(el, cls) {
     el.classList.remove(cls);
@@ -119,6 +142,8 @@
     box.classList.toggle("is-problem", state.status !== "ok");
     if (state.status !== "ok") {
       box.classList.remove("is-dungeon", "is-recovering", "show-time", "is-swapping");
+      box.style.width = "";
+      widthKey = "";
     }
 
     if (state.status === "needs-permission") {
@@ -164,6 +189,29 @@
     if (changed) reposition();
   }
 
+  // While alternating, hold the width of the wider of the two views so the chip
+  // never resizes on the flip. Only remeasured when the content actually changes.
+  function holdWidth(tv, now) {
+    if (!tv) {
+      if (box.style.width) {
+        box.style.width = "";
+        widthKey = "";
+        reposition();
+      }
+      return;
+    }
+    const balText = latest.balance.toLocaleString("en-US");
+    const timeText = fmtDur(tv.endMs - now);
+    const key = balText + "|" + tv.label + "|" + timeText.length + "|" + (box.classList.contains("grow-right") ? "r" : "l");
+    if (key === widthKey) return;
+    widthKey = key;
+    const w = Math.max(ghostWidth(false, "LuxBux", balText), ghostWidth(true, tv.label, timeText)) + "px";
+    if (box.style.width !== w) {
+      box.style.width = w;
+      reposition();
+    }
+  }
+
   // Runs every second: ticks the countdown and flips balance <-> time.
   function tick() {
     if (!latest || latest.status !== "ok") return;
@@ -172,6 +220,7 @@
 
     box.classList.toggle("is-dungeon", !!tv && tv.mod === "is-dungeon");
     box.classList.toggle("is-recovering", !!tv && tv.mod === "is-recovering");
+    holdWidth(tv, now);
 
     const phase = tv && now >= earnHoldUntil ? Math.floor(now / ALT_MS) % 2 : 0;
     box.classList.toggle("show-time", phase === 1 && !!tv);

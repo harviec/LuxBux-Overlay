@@ -15,7 +15,8 @@ One shared codebase for **Chrome**, **Edge**, and **Firefox** (142+).
   Twitch tab is open.
 - **Dungeon status:** while a *Luxbound* run or a post-death recovery is active,
   the chip alternates every few seconds between the LuxBux number and the time
-  left, and takes on a purple (dungeon) or red (recovering) accent. Polled from
+  left, and takes on a purple (dungeon) or red (recovering) accent. It holds the
+  width of the wider view so it doesn't resize on the flip. Polled from
   `/game/api/play` every ~90 s.
 - Shows **only on the channels you pick** (default: `luxthos`,
   `luxthoshobbies`), or everywhere. Editable from the toolbar popup.

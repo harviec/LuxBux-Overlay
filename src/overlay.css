@@ -2,7 +2,21 @@
 
 #luxbux-overlay[hidden] { display: none !important; }
 
+/* Measuring twin: rendered (so it has a width) but out of sight and out of the
+   way. `width: auto` so it always reports its natural size for each view. */
+#luxbux-overlay.is-ghost {
+  left: -99999px !important;
+  top: 0 !important;
+  right: auto !important;
+  bottom: auto !important;
+  width: auto !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  animation: none !important;
+}
+
 #luxbux-overlay {
+  box-sizing: border-box;
   position: fixed;
   top: 12px;
   right: 12px;
