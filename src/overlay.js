@@ -19,11 +19,14 @@
   const ext = globalThis.browser || globalThis.chrome;
 
   const REFRESH_MS = 15000; // same cadence luxthos.io's own page uses
+  const GAME_POLL_MIN = 15;
+  const GAME_POLL_MAX = 120;
   const DEFAULTS = {
     showAll: false,
     channels: ["luxthos", "luxthoshobbies"],
     grow: "left", // which way the box expands as the number gets more digits
     anchor: "player", // "player" tracks the video; "window" pins to the viewport
+    gamePollSec: 30, // how often to check dungeon status (15–120s)
   };
 
   // Twitch renames classes often — first match with a plausible size wins,
@@ -39,7 +42,12 @@
 
   const msg = (m) => Promise.resolve(ext.runtime.sendMessage(m)).catch(() => {});
   const ask = (force) => msg({ t: "refresh", force: !!force });
-  const askGame = () => msg({ t: "refreshGame" }); // dungeon / recovery status
+  let lastGameAsk = 0;
+  const askGame = () => {
+    lastGameAsk = Date.now();
+    return msg({ t: "refreshGame" }); // dungeon / recovery status
+  };
+  const gamePollMs = () => clamp((settings && settings.gamePollSec) || 30, GAME_POLL_MIN, GAME_POLL_MAX) * 1000;
   // Tells the background "a Twitch tab is here" so it colours the toolbar icon
   // and keeps the balance fresh even on non-Luxthos channels.
   const ping = () => msg({ t: "onTwitch", allowed: onAllowed, live: streamLive() });
@@ -527,14 +535,11 @@
         }
         wasLive = live;
       }
+      // Dungeon status, on the interval from the popup (15–120s). The check
+      // lives here so a changed setting takes effect on the next second.
+      if (live && Date.now() - lastGameAsk >= gamePollMs()) askGame();
     }
   }, 1000);
-
-  // Dungeon / recovery status changes slowly (runs last hours) — poll it far less
-  // often than the balance, and only while actually watching a live stream.
-  setInterval(() => {
-    if (onAllowed && streamLive() && !document.hidden) askGame();
-  }, 90000);
 
   // ---- drag to move / click to refresh ---------------------------------
   box.addEventListener("pointerdown", (e) => {

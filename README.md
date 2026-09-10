@@ -19,7 +19,7 @@ One shared codebase for **Chrome**, **Edge**, and **Firefox** (142+).
   **"LOOT!"** when a finished run has items waiting (**"Done"** if it cleared
   with nothing), or the recovery countdown (red) after a death. It holds the
   width/height of the widest view so it never resizes on the flip. Polled from
-  `/game/api/play` every ~90 s.
+  `/game/api/play` on an interval you set in the popup (15–120 s, default 30).
 - Shows **only on the channels you pick** (default: `luxthos`,
   `luxthoshobbies`), or everywhere. Editable from the toolbar popup.
 - By default it's **pinned to the video player** and tracks it through page
@@ -59,8 +59,9 @@ One shared codebase for **Chrome**, **Edge**, and **Firefox** (142+).
   `ResizeObserver` (theater mode) / `fullscreenchange` — where the chip is also
   moved into the fullscreen element so it stays visible.
 - `src/popup.html` is the toolbar popup: balance readout, a refresh button, the
-  channel list, and the anchor / grow-direction choices. Settings live in
-  `chrome.storage.local` and autosave.
+  channel list, the anchor / grow-direction choices, and the dungeon-poll
+  slider. Settings live in `chrome.storage.local`, autosave, and apply to open
+  tabs on the next tick without a reload.
 
 Nothing leaves your browser except the request to luxthos.io, and only while
 you're actively watching a live allowed stream. No analytics, no other hosts
@@ -96,6 +97,8 @@ the `»` overflow / extensions menu — pin it, or open the same screen via
   fullscreen) or *The browser window* (fixed on screen).
 - **When the number gets longer, grow** — *← Left* (stay pinned to the right)
   or *Right →* (stay pinned to the left). The "+N" pop follows it.
+- **Check dungeon status every** — a 15–120 s slider (default 30). Only matters
+  while you're watching a live allowed stream; the balance keeps its own 15 s.
 
 Changes save automatically and apply to open Twitch tabs immediately.
 
@@ -180,12 +183,12 @@ Lint a build with `npx web-ext lint --source-dir dist/firefox`.
 | Chip size | `.luxbux-value` `font-size` in `src/overlay.css` (`21px`; site uses `40px`) |
 | Starting corner | `#luxbux-overlay` `top` / `right` in `src/overlay.css` (until first drag) |
 | Refresh rate | `REFRESH_MS` in `src/overlay.js` (`15000`); keep it above `MIN_GAP_MS` in `src/background.js` |
-| Dungeon poll rate | the `90000` interval in `src/overlay.js`; floor is `GAME_MIN_GAP_MS` in `src/background.js` |
+| Dungeon poll rate | the popup slider; bounds are `GAME_POLL_MIN` / `GAME_POLL_MAX` in `src/overlay.js`, default in `DEFAULTS` / `DEFAULT_SETTINGS` |
 | Alternation speed | `ALT_MS` in `src/overlay.js` (`4500` — each of LuxBux / time shows this long) |
 | Live detection | `streamLive()` in `src/overlay.js` (loosen it if Twitch changes the LIVE badge / viewer-count markup) |
 | Game-state parsing | `pollGame()` / `ROMAN` in `src/background.js` (dungeon-name lookup uses `run.tier` + `dungeons[].fromTier`; states derived from `run` / `celebrate` / `lockedUntil`) |
 | Dungeon state labels | `timeView()` in `src/overlay.js` |
-| Default channels / grow / anchor | `DEFAULTS` in `src/overlay.js` and `DEFAULT_SETTINGS` in `src/background.js` |
+| Default channels / grow / anchor / dungeon-poll | `DEFAULTS` in `src/overlay.js` and `DEFAULT_SETTINGS` in `src/background.js` |
 | Player detection (if Twitch renames classes) | `PLAYER_SELECTORS` in `src/overlay.js` |
 | Run beyond Twitch | `matches` in both manifests (`"<all_urls>"` — channel gating still applies unless "all" is picked) |
 | Icon colours | `COLORS` in `tools/make-icons.mjs`, then rerun it; `ICONS` / `TITLES` / `colorFor()` in `src/background.js` |

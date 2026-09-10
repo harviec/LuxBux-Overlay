@@ -24,6 +24,7 @@ const DEFAULT_SETTINGS = {
   channels: ["luxthos", "luxthoshobbies"],
   grow: "left", // direction the box expands as the number gets longer
   anchor: "player", // "player" tracks the video; "window" pins to the viewport
+  gamePollSec: 30, // dungeon-status check interval, 15–120s (set in the popup)
 };
 
 // Collapse near-simultaneous refresh requests (multiple tabs, a click landing
@@ -31,9 +32,9 @@ const DEFAULT_SETTINGS = {
 const MIN_GAP_MS = 8000;
 let lastPollAt = 0;
 
-// The game-state endpoint is heavier and dungeon runs last hours, so poll it
-// far less often than the balance.
-const GAME_MIN_GAP_MS = 60000;
+// The content script owns the game-poll cadence (a popup setting, 15–120s).
+// This is just an anti-stampede floor for when several tabs check in at once.
+const GAME_MIN_GAP_MS = 10000;
 let lastGamePollAt = 0;
 
 const ROMAN = ["I", "II", "III", "IV", "V"];

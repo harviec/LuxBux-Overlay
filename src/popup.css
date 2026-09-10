@@ -111,3 +111,22 @@ textarea#channels:disabled { opacity: 0.4; }
   min-height: 14px;
 }
 .hint.is-saved { color: #7ef0a6; }
+
+.slider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.slider input[type="range"] {
+  flex: 1;
+  accent-color: var(--purple);
+  margin: 0;
+}
+.slider__val {
+  flex: none;
+  min-width: 30px;
+  text-align: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}

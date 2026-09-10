@@ -11,7 +11,9 @@ const DEFAULTS = {
   channels: ["luxthos", "luxthoshobbies"],
   grow: "left",
   anchor: "player",
+  gamePollSec: 30,
 };
+const clampInt = (n, lo, hi) => Math.max(lo, Math.min(hi, Math.round(n) || lo));
 const HINT = "One channel per line — the name from its URL.";
 
 const send = (m) => Promise.resolve(ext.runtime.sendMessage(m)).catch(() => {});
@@ -58,8 +60,13 @@ function readForm() {
     showAll: $('input[name="scope"]:checked').value === "all",
     grow: pick("grow", ["left", "right"], "left"),
     anchor: pick("anchor", ["player", "window"], "player"),
+    gamePollSec: clampInt(parseInt($("#gamepoll").value, 10), 15, 120),
     channels: parseChannels($("#channels").value),
   };
+}
+
+function syncGamePollLabel() {
+  $("#gamepollVal").textContent = $("#gamepoll").value + "s";
 }
 
 function syncDisabled() {
@@ -101,11 +108,14 @@ async function init() {
   $(`input[name="scope"][value="${settings.showAll ? "all" : "list"}"]`).checked = true;
   $(`input[name="grow"][value="${settings.grow === "right" ? "right" : "left"}"]`).checked = true;
   $(`input[name="anchor"][value="${settings.anchor === "window" ? "window" : "player"}"]`).checked = true;
+  $("#gamepoll").value = clampInt(settings.gamePollSec, 15, 120);
   syncDisabled();
+  syncGamePollLabel();
   $("#grant").hidden = await hasAccess();
 
   document.addEventListener("input", (e) => {
     if (e.target.name === "scope") syncDisabled();
+    if (e.target.id === "gamepoll") syncGamePollLabel();
     scheduleSave();
   });
 
