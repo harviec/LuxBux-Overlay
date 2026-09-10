@@ -88,6 +88,29 @@
   color: #f0a0a0;
 }
 
+/* Finished run, results waiting — gold, and it pulses so it catches the eye. */
+#luxbux-overlay.is-loot {
+  border-color: rgba(255, 201, 60, 0.75);
+  animation: luxbux-loot 2s ease-in-out infinite;
+}
+#luxbux-overlay.is-loot .luxbux-label {
+  color: #ffc93c;
+}
+#luxbux-overlay.is-loot.show-time .luxbux-value {
+  color: #ffe9a8;
+  text-shadow: 0 0 16px rgba(255, 201, 60, 0.5);
+}
+@keyframes luxbux-loot {
+  0%, 100% {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35), 0 0 0 0 rgba(255, 201, 60, 0);
+    border-color: rgba(255, 201, 60, 0.4);
+  }
+  50% {
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35), 0 0 18px 3px rgba(255, 201, 60, 0.3);
+    border-color: rgba(255, 201, 60, 0.95);
+  }
+}
+
 #luxbux-overlay .luxbux-value-wrap {
   position: relative;
   display: inline-flex;
@@ -159,7 +182,9 @@
 
 @media (prefers-reduced-motion: reduce) {
   #luxbux-overlay .luxbux-value.is-bumped,
-  #luxbux-overlay.is-earning { animation: none; }
+  #luxbux-overlay.is-earning,
+  #luxbux-overlay.is-loot { animation: none; }
+  #luxbux-overlay.is-loot { border-color: rgba(255, 201, 60, 0.85); }
   #luxbux-overlay .luxbux-delta,
   #luxbux-overlay .luxbux-label,
   #luxbux-overlay .luxbux-value { transition: none; }

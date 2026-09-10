@@ -174,8 +174,23 @@ async function poll() {
   }
 }
 
+function dungeonName(dungeons, tier) {
+  if (tier == null) return "";
+  const dg = (dungeons || []).find(
+    (x) => tier >= x.fromTier && tier <= x.fromTier + ROMAN.length - 1
+  );
+  const numeral = dg ? ROMAN[tier - dg.fromTier] : "";
+  return dg ? dg.name + (numeral ? " " + numeral : "") : "a dungeon";
+}
+
 // GET /game/api/play -> full game state. We keep only what the chip needs:
-// whether a dungeon run or a post-death recovery is in progress, and when it ends.
+//   dungeon   run in progress (name)
+//   endsAt    when its clock runs out
+//   awaiting  clock is up but it hasn't been resolved yet ("Finish" in game)
+//   done      a finished run's results are waiting to be collected
+//   loot      how many items that finished run dropped ("LOOT!")
+//   outcome   "success" | "survived" | "died"
+//   lockedUntil  recovering after a death
 async function pollGame() {
   lastGamePollAt = Date.now();
   if (!(await hasHostAccess())) return;
@@ -185,18 +200,26 @@ async function pollGame() {
     const d = await res.json();
     if (!d || d.error) return setState({ game: { off: true } });
 
+    const now = Date.now();
     const game = {};
+
     const run = d.run;
     if (run && run.tier != null) {
-      const dg = (d.dungeons || []).find(
-        (x) => run.tier >= x.fromTier && run.tier <= x.fromTier + ROMAN.length - 1
-      );
-      const numeral = dg ? ROMAN[run.tier - dg.fromTier] : "";
-      game.dungeon = dg ? (dg.name + (numeral ? " " + numeral : "")) : "a dungeon";
+      game.dungeon = dungeonName(d.dungeons, run.tier);
       game.endsAt = tsToMs(run.endsAt);
+      if (game.endsAt && game.endsAt <= now) game.awaiting = true; // clock up, not resolved
     }
+
+    const cel = d.celebrate; // a finished run the player hasn't acknowledged yet
+    if (cel) {
+      game.done = true;
+      game.loot = Array.isArray(cel.items) ? cel.items.length : 0;
+      game.outcome = cel.outcome || "";
+      if (!game.dungeon) game.dungeon = dungeonName(d.dungeons, cel.tier);
+    }
+
     const lockedUntil = tsToMs(d.lockedUntil);
-    if (lockedUntil && lockedUntil > Date.now()) game.lockedUntil = lockedUntil;
+    if (lockedUntil && lockedUntil > now) game.lockedUntil = lockedUntil;
 
     return setState({ game });
   } catch (e) {

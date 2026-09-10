@@ -120,16 +120,23 @@
     return h ? `${h}:${pad(m)}:${pad(ss)}` : `${m}:${pad(ss)}`;
   }
 
-  // What the "time" half of the alternation shows right now, or null if neither
-  // a run nor a recovery is in progress. Labels are kept close in width to
-  // "LuxBux" so the chip barely changes size as it flips.
+  // What the non-LuxBux half of the alternation shows right now (or null). `live`
+  // views recompute their text every second; the rest are a fixed word.
   function timeView(now) {
-    if (game && game.lockedUntil && game.lockedUntil > now) {
-      return { label: "Recovery", endMs: game.lockedUntil, mod: "is-recovering" };
-    }
-    if (game && game.endsAt && game.endsAt > now && game.dungeon) {
-      return { label: "Dungeon", endMs: game.endsAt, mod: "is-dungeon" };
-    }
+    const g = game;
+    if (!g) return null;
+    if (g.endsAt && g.endsAt > now && g.dungeon)
+      return { label: "Dungeon", text: fmtDur(g.endsAt - now), mod: "is-dungeon", live: true };
+    if (g.lockedUntil && g.lockedUntil > now)
+      return { label: "Recovery", text: fmtDur(g.lockedUntil - now), mod: "is-recovering", live: true };
+    if (g.done && g.loot > 0)
+      return { label: "Dungeon", text: "LOOT!", mod: "is-loot" };
+    if (g.done && g.outcome === "died")
+      return { label: "Recovery", text: "Died", mod: "is-recovering" };
+    if (g.done)
+      return { label: "Dungeon", text: "Done", mod: "is-loot" };
+    if (g.awaiting)
+      return { label: "Dungeon", text: "Finish", mod: "is-dungeon" };
     return null;
   }
 
@@ -141,7 +148,7 @@
 
     box.classList.toggle("is-problem", state.status !== "ok");
     if (state.status !== "ok") {
-      box.classList.remove("is-dungeon", "is-recovering", "show-time", "is-swapping");
+      box.classList.remove("is-dungeon", "is-recovering", "is-loot", "show-time", "is-swapping");
       box.style.width = "";
       widthKey = "";
     }
@@ -191,7 +198,7 @@
 
   // While alternating, hold the width of the wider of the two views so the chip
   // never resizes on the flip. Only remeasured when the content actually changes.
-  function holdWidth(tv, now) {
+  function holdWidth(tv) {
     if (!tv) {
       if (box.style.width) {
         box.style.width = "";
@@ -201,11 +208,14 @@
       return;
     }
     const balText = latest.balance.toLocaleString("en-US");
-    const timeText = fmtDur(tv.endMs - now);
-    const key = balText + "|" + tv.label + "|" + timeText.length + "|" + (box.classList.contains("grow-right") ? "r" : "l");
+    // a ticking countdown keeps the same width per digit-count, so key on length
+    const sizer = tv.live ? String(tv.text.length) : tv.text;
+    const key =
+      balText + "|" + tv.label + "|" + sizer + "|" + (box.classList.contains("grow-right") ? "r" : "l");
     if (key === widthKey) return;
     widthKey = key;
-    const w = Math.max(ghostWidth(false, "LuxBux", balText), ghostWidth(true, tv.label, timeText)) + "px";
+    const w =
+      Math.max(ghostWidth(false, "LuxBux", balText), ghostWidth(true, tv.label, tv.text)) + "px";
     if (box.style.width !== w) {
       box.style.width = w;
       reposition();
@@ -220,14 +230,15 @@
 
     box.classList.toggle("is-dungeon", !!tv && tv.mod === "is-dungeon");
     box.classList.toggle("is-recovering", !!tv && tv.mod === "is-recovering");
-    holdWidth(tv, now);
+    box.classList.toggle("is-loot", !!tv && tv.mod === "is-loot");
+    holdWidth(tv);
 
     const phase = tv && now >= earnHoldUntil ? Math.floor(now / ALT_MS) % 2 : 0;
     box.classList.toggle("show-time", phase === 1 && !!tv);
 
     const paint = () => {
       const t = timeView(Date.now());
-      if (phase === 1 && t) setDisplay(t.label, fmtDur(t.endMs - Date.now()));
+      if (phase === 1 && t) setDisplay(t.label, t.text);
       else setDisplay("LuxBux", latest.balance.toLocaleString("en-US"));
     };
 

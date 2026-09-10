@@ -13,10 +13,12 @@ One shared codebase for **Chrome**, **Edge**, and **Firefox** (142+).
   visible — the same cadence the site's page uses — with a "+N" pop when you
   earn. Stops polling when the stream is offline, the tab is hidden, or no
   Twitch tab is open.
-- **Dungeon status:** while a *Luxbound* run or a post-death recovery is active,
-  the chip alternates every few seconds between the LuxBux number and the time
-  left, and takes on a purple (dungeon) or red (recovering) accent. It holds the
-  width of the wider view so it doesn't resize on the flip. Polled from
+- **Dungeon status:** while a *Luxbound* run is going the chip alternates every
+  few seconds between the LuxBux number and the state — the countdown (purple),
+  **"Finish"** when the clock's up but the run isn't collected, a pulsing gold
+  **"LOOT!"** when a finished run has items waiting (**"Done"** if it cleared
+  with nothing), or the recovery countdown (red) after a death. It holds the
+  width/height of the widest view so it never resizes on the flip. Polled from
   `/game/api/play` every ~90 s.
 - Shows **only on the channels you pick** (default: `luxthos`,
   `luxthoshobbies`), or everywhere. Editable from the toolbar popup.
@@ -35,7 +37,10 @@ One shared codebase for **Chrome**, **Edge**, and **Firefox** (142+).
   `GET /luxbux/api/me/balance` → `{ "balance": 100 }`, authenticated by your
   normal luxthos.io login cookie. `GET /game/api/play` returns the *Luxbound*
   game state the same way; the background keeps just `run` (→ dungeon name +
-  `endsAt`) and `lockedUntil` (→ recovery time) from it.
+  `endsAt`, plus "clock up but unresolved"), `celebrate` (→ a finished run's
+  `items` count and `outcome`), and `lockedUntil` (→ recovery time) from it. It
+  never POSTs — resolving a run stays the player's call (so a full bag doesn't
+  silently drop loot).
 - `src/background.js` (a service worker on Chrome/Edge, an event page on
   Firefox) does the fetch. Because the request comes from the extension your
   luxthos.io session cookie is sent as a first-party request — no scraping, no
@@ -173,7 +178,8 @@ Lint a build with `npx web-ext lint --source-dir dist/firefox`.
 | Dungeon poll rate | the `90000` interval in `src/overlay.js`; floor is `GAME_MIN_GAP_MS` in `src/background.js` |
 | Alternation speed | `ALT_MS` in `src/overlay.js` (`4500` — each of LuxBux / time shows this long) |
 | Live detection | `streamLive()` in `src/overlay.js` (loosen it if Twitch changes the LIVE badge / viewer-count markup) |
-| Game-state parsing | `pollGame()` / `ROMAN` in `src/background.js` (dungeon-name lookup uses `run.tier` + `dungeons[].fromTier`) |
+| Game-state parsing | `pollGame()` / `ROMAN` in `src/background.js` (dungeon-name lookup uses `run.tier` + `dungeons[].fromTier`; states derived from `run` / `celebrate` / `lockedUntil`) |
+| Dungeon state labels | `timeView()` in `src/overlay.js` |
 | Default channels / grow / anchor | `DEFAULTS` in `src/overlay.js` and `DEFAULT_SETTINGS` in `src/background.js` |
 | Player detection (if Twitch renames classes) | `PLAYER_SELECTORS` in `src/overlay.js` |
 | Run beyond Twitch | `matches` in both manifests (`"<all_urls>"` — channel gating still applies unless "all" is picked) |
