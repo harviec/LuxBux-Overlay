@@ -61,12 +61,12 @@
   opacity: 0.12;
 }
 
-/* Time view: mm:ss / h:mm:ss reads like a number but needs a touch less size,
-   and the label sheds letter-spacing so "DUNGEON" / "RECOVERY" land close to
-   "LUXBUX" in width and the chip barely resizes on the flip. */
+/* Time view: same size as the balance (so the chip's height doesn't change on
+   the flip) but a cooler white without the gold glow, so it still reads as a
+   different kind of value. The label sheds letter-spacing so "DUNGEON" /
+   "RECOVERY" land close to "LUXBUX" in width. */
 #luxbux-overlay.show-time .luxbux-value {
-  font-size: 16px;
-  color: #f2f4ff;
+  color: #eef1ff;
   text-shadow: none;
 }
 #luxbux-overlay.show-time .luxbux-label {
